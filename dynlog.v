@@ -15,7 +15,8 @@ Module PDL (D : DYNLOGIC).
  | Test : Prop -> prog.
 
  Definition Assertion := D.state -> Prop.
- Definition box (A : Assertion) : Prop := forall (st : D.state), A st.
- Definition diamond (A : Assertion) : Prop := exists (st : D.state), A st.
-
+ Definition impl (A B : Assertion) : Assertion := (fun x => (A x -> B x)).
+ Definition necess (A : Assertion) : Prop := forall (st : D.state), A st.
+ Definition possib (A : Assertion) : Prop := exists (st : D.state), A st.
+ 
 End PDL.
