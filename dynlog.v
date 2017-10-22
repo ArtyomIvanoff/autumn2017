@@ -1,5 +1,9 @@
 Require Import Notations.
 Require Import Logic.
+Require Import Relations.Relation_Operators.
+Arguments clos_refl_trans_1n {A} R x _.
+Arguments clos_trans {A} R x _.
+Arguments union {A} R1 R2 x y.
 
 Definition relation (X: Type) := X -> X -> Prop.
 
@@ -22,17 +26,17 @@ Module PDL (Import D : DYNLOGIC).
  | Iteration : prog -> prog
  | Test : Assertion -> prog.
  
-Fixpoint mf (pr : prog) (st st' : state) : Prop :=
- match pr with
- | Elem ap => meanFunc ap st st'
- | Sequence pr1 pr2 => exists st'', mf pr1 st st'' /\ mf pr2 st'' st'
- | Choice pr1 pr2 => mf pr1 st st' \/ mf pr2 st st'
- | Iteration pr1 => True 
- | Test A => st = st' /\ A st
+Fixpoint progSemantics  (p : prog) : relation state :=
+ match p with
+ | Elem ap => meanFunc ap
+ | Sequence p1 p2 => clos_trans (progSemantics p1)
+ | Choice p1 p2 => union (progSemantics p1) (progSemantics p2) 
+ | Iteration p => clos_refl_trans_1n (progSemantics p) 
+ | Test A => eq
  end.
   
  Definition box (pr : prog) (A : Assertion) : Prop := 
-   forall (st st' : state), mf pr st st' -> necess A.
+   forall (st st' : state), progSemantics  pr st st' -> necess A.
 
 
  
