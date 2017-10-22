@@ -22,8 +22,17 @@ Module PDL (Import D : DYNLOGIC).
  | Iteration : prog -> prog
  | Test : Assertion -> prog.
  
- Definition box (ap : atomic_prog) (A : Assertion) : Prop := 
-   forall (st st' : state), meanFunc ap st st' -> necess A.
+Fixpoint mf (pr : prog) (st st' : state) : Prop :=
+ match pr with
+ | Elem ap => meanFunc ap st st'
+ | Sequence pr1 pr2 => exists st'', mf pr1 st st'' /\ mf pr2 st'' st'
+ | Choice pr1 pr2 => mf pr1 st st' \/ mf pr2 st st'
+ | Iteration pr1 => True 
+ | Test A => st = st' /\ A st
+ end.
+  
+ Definition box (pr : prog) (A : Assertion) : Prop := 
+   forall (st st' : state), mf pr st st' -> necess A.
 
 
  
