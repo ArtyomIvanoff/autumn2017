@@ -41,7 +41,7 @@ Module PDL (Import D : DynLogic).
  end.
   
  Definition box (pr : prog) (A : assertion) : assertion := 
-   fun st' => (forall st, progSemantics pr st st' -> A st').
+   fun st => (forall st', progSemantics pr st st' -> A st').
  
  Check box.
 
