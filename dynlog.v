@@ -59,36 +59,52 @@ Module PDL (Import D : DynLogic).
  Proof.
  Admitted.
  
- Definition and (A B : assertion) : assertion := (fun x => (A x /\ B x)).
- Notation "A /\ B" := (and A B) (at level 80, right associativity).
+ Definition andA (A B : assertion) : assertion := (fun x => (A x /\ B x)).
+ Notation "A /| B" := (andA A B) (at level 80, right associativity).
 
  Theorem axiom_II : forall (p : prog) (A B : assertion) (st : state),
- ([p](A/\B)) st <-> (([p]A) st)/\(([p]B) st).
+ ([p](A/|B)) st <-> (([p]A) st)/\(([p]B) st).
  Proof.
- Admitted.
+ intros p A B st. split.
+ * intros H. split; unfold box in *; intros st' H1;
+   apply H in H1; destruct H1 as [H1' H1'']; assumption.
+ * intros [HA HB]. unfold box in *. intros st' H. split.
+   now apply HA in H. now apply HB in H.
+ Qed.
 
  Theorem axiom_III : forall (p p': prog) (A : assertion) (st : state),
   ([p U p']A) st <-> (([p]A) st)/\(([p']A) st). 
  Proof.
- Admitted.
-
+ intros p p' A st. split.
+ * intros H. unfold box in *. split;
+   intros st' H1; specialize H with st';
+   simpl in H; apply H; unfold union; [now left | now right].
+ * intros [H H']. unfold box in *. intros st' H1. simpl in H1.
+   unfold union in H1. destruct H1 as [H1|H1]. 
+   now apply H in H1. now apply H' in H1.
+ Qed.  
+ 
  Theorem axion_IV : forall (p p': prog) (A : assertion) (st : state),
  ([p; p']A) st <-> ([p]([p']A)) st.
  Proof.
+ intros p p' A st. split.
+ * unfold box in *. intros H st'' H1 st3 H2. apply H.
+   simpl in *. apply comp_intro with (y:=st''). assumption. assumption. 
+ * unfold box in *. intros H st' H1. simpl in H1. admit.
  Admitted.
 
  Theorem axiom_V : forall (A B : assertion) (st : state),
  ([A?]B) st <-> (A -> B) st.
  Proof.
- Admitted.
+ 
 
  Theorem axiom_VI : forall (p : prog) (A : assertion) (st : state),
- (and A ([p]([Iteration p]A))) st <-> ([Iteration p]A) st.
+ (A /| ([p]([Iteration p]A))) st <-> ([Iteration p]A) st.
  Proof.
  Admitted.
 
  Theorem axiom_VII : forall (p : prog) (A : assertion) (st : state),
- (and A ([Iteration p](A -> [p]A)) -> [Iteration p]A) st. 
+ (A /| ([Iteration p](A -> [p]A)) -> [Iteration p]A) st. 
  Proof.
  Admitted.
 
