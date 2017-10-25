@@ -43,10 +43,54 @@ Module PDL (Import D : DynLogic).
  Definition box (pr : prog) (A : assertion) : assertion := 
    fun st => (forall st', progSemantics pr st st' -> A st').
  
- Check box.
+ Definition skip := Test (fun _ => True).
+ Definition fail := Test (fun _ => False).
+
+ Notation "p1 ; p2" := (Sequence p1 p2) (at level 60, right associativity).
+ Notation "p1 'U' p2" := (Choice p1 p2) (at level 55, right associativity).
+ Notation "p *" := (Iteration p) (at level 50, left associativity).
+ Notation "A ?" := (Test A) (at level 50, left associativity).
+ Notation "[ p ] A" := (box p A) (at level 70, right associativity).
+
+ Notation "A -> B" := (impl A B) (at level 80, right associativity).
+
+ Theorem axiom_I : forall (p : prog) (A B : assertion) (st : state),
+    ([p](A -> B) -> ([p]A -> [p]B)) st.
+ Proof.
+ Admitted.
+ 
+ Definition and (A B : assertion) : assertion := (fun x => (A x /\ B x)).
+ Notation "A /\ B" := (and A B) (at level 80, right associativity).
+
+ Theorem axiom_II : forall (p : prog) (A B : assertion) (st : state),
+ ([p](A/\B)) st <-> (([p]A) st)/\(([p]B) st).
+ Proof.
+ Admitted.
+
+ Theorem axiom_III : forall (p p': prog) (A : assertion) (st : state),
+  ([p U p']A) st <-> (([p]A) st)/\(([p']A) st). 
+ Proof.
+ Admitted.
+
+ Theorem axion_IV : forall (p p': prog) (A : assertion) (st : state),
+ ([p; p']A) st <-> ([p]([p']A)) st.
+ Proof.
+ Admitted.
+
+ Theorem axiom_V : forall (A B : assertion) (st : state),
+ ([A?]B) st <-> (A -> B) st.
+ Proof.
+ Admitted.
+
+ Theorem axiom_VI : forall (p : prog) (A : assertion) (st : state),
+ (and A ([p]([Iteration p]A))) st <-> ([Iteration p]A) st.
+ Proof.
+ Admitted.
+
+ Theorem axiom_VII : forall (p : prog) (A : assertion) (st : state),
+ (and A ([Iteration p](A -> [p]A)) -> [Iteration p]A) st. 
+ Proof.
+ Admitted.
 
 
- 
- 
- 
 End PDL.
