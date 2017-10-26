@@ -1,6 +1,7 @@
 Require Import Notations.
 Require Import Logic.
 Require Import Relations.
+Require Import Coq.Setoids.Setoid.
 
 Arguments clos_refl_trans_1n {A} R x _.
 Arguments clos_trans {A} R x _.
@@ -12,12 +13,14 @@ Module Type DynLogic.
 End DynLogic.
 
 Section Compose.
-  Variable T : Type.
-  Variables R1 R2 : relation T.
-  Inductive composeRelSt : relation T :=
-  | comp_intro (x y z : T) : R1 x y -> R2 y z -> composeRelSt x z.
+  Variables U V T : Type.
+  Variable R1 : U -> V -> Prop.
+  Variable R2 : V -> T -> Prop.
+  Inductive composeRel : U -> T -> Prop :=
+  | comp_intro (x : U) (z : T) : (exists y, R1 x y /\ R2 y z) -> composeRel x z.
 End Compose.
-Arguments composeRelSt {T} R1 R2 _ _.
+
+Arguments composeRel {U} {V} {T} R1 R2 _ _.
 
 Module PDL (Import D : DynLogic).
  Definition assertion := state -> Prop.
@@ -34,10 +37,10 @@ Module PDL (Import D : DynLogic).
  Fixpoint progSemantics  (p : prog) : relation state :=
  match p with
  | Elem ap => meanFunc ap
- | Sequence p1 p2 => composeRelSt (progSemantics p1) (progSemantics p2)
+ | Sequence p1 p2 => composeRel (progSemantics p1) (progSemantics p2)
  | Choice p1 p2 => union (progSemantics p1) (progSemantics p2) 
  | Iteration p => clos_refl_trans_1n (progSemantics p) 
- | Test A => eq
+ | Test A => (fun st st' => st=st' /\ A st)
  end.
   
  Definition box (pr : prog) (A : assertion) : assertion := 
@@ -57,7 +60,9 @@ Module PDL (Import D : DynLogic).
  Theorem axiom_I : forall (p : prog) (A B : assertion) (st : state),
     ([p](A -> B) -> ([p]A -> [p]B)) st.
  Proof.
- Admitted.
+ intros p A B st. unfold impl. intros HI HA. unfold box in *.
+ intros st' H. apply HI. apply H. apply HA. apply H.
+ Qed.
  
  Definition andA (A B : assertion) : assertion := (fun x => (A x /\ B x)).
  Notation "A /| B" := (andA A B) (at level 80, right associativity).
@@ -84,28 +89,46 @@ Module PDL (Import D : DynLogic).
    now apply H in H1. now apply H' in H1.
  Qed.  
  
- Theorem axion_IV : forall (p p': prog) (A : assertion) (st : state),
+ Theorem axiom_IV : forall (p p': prog) (A : assertion) (st : state),
  ([p; p']A) st <-> ([p]([p']A)) st.
  Proof.
  intros p p' A st. split.
  * unfold box in *. intros H st'' H1 st3 H2. apply H.
-   simpl in *. apply comp_intro with (y:=st''). assumption. assumption. 
- * unfold box in *. intros H st' H1. simpl in H1. admit.
- Admitted.
+   simpl in *. apply comp_intro. exists st''. split; assumption.  
+ * unfold box in *. intros H st' H1. simpl in H1. 
+   inversion H1. subst. destruct H0 as [y [H' H'']].
+   apply H with (st':=y); assumption.
+Qed.
 
  Theorem axiom_V : forall (A B : assertion) (st : state),
  ([A?]B) st <-> (A -> B) st.
  Proof.
- 
+ intros A B st. split.
+ * unfold box in *. intros H. unfold impl. intros HA. apply H.
+   simpl. split; [reflexivity|assumption].
+ * unfold box in *. intros H st' HT. unfold impl in H. simpl in HT.
+   destruct HT as [H1 H2].  rewrite <- H1. now apply H.
+ Qed.
 
  Theorem axiom_VI : forall (p : prog) (A : assertion) (st : state),
  (A /| ([p]([Iteration p]A))) st <-> ([Iteration p]A) st.
  Proof.
- Admitted.
+ intros p A st. split.
+ * unfold andA. intros [HA HI]. apply <- (axiom_IV p (Iteration p) A st) in HI .
+   unfold box in *. simpl in *. intros st' H. inversion H. subst. apply HA.
+   apply HI. apply comp_intro. exists y. split. apply H0. apply H1.
+ * intros H. unfold andA. split.
+   + unfold box in H. apply H. simpl. apply rt1n_refl.
+   + unfold box at 1. intros. unfold box in *.
+     intros st'' H1. apply H. simpl in *.
+     apply Relation_Operators.rt1n_trans with (y:=st'). apply H0. apply H1.
+ Qed.
 
  Theorem axiom_VII : forall (p : prog) (A : assertion) (st : state),
- (A /| ([Iteration p](A -> [p]A)) -> [Iteration p]A) st. 
+ ((A /|([Iteration p](A -> [p]A))) -> [Iteration p]A) st. 
  Proof.
+ intros p A st. unfold impl at 1. intros H. destruct H as [HA HI].
+ admit.
  Admitted.
 
 
