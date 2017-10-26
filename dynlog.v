@@ -55,10 +55,10 @@ Module PDL (Import D : DynLogic).
  Notation "A ?" := (Test A) (at level 50, left associativity).
  Notation "[ p ] A" := (box p A) (at level 70, right associativity).
 
- Notation "A -> B" := (impl A B) (at level 80, right associativity).
+ Notation "A ]-> B" := (impl A B) (at level 80, right associativity).
 
  Theorem axiom_I : forall (p : prog) (A B : assertion) (st : state),
-    ([p](A -> B) -> ([p]A -> [p]B)) st.
+    ([p](A ]-> B) ]-> ([p]A ]-> [p]B)) st.
  Proof.
  intros p A B st. unfold impl. intros HI HA. unfold box in *.
  intros st' H. apply HI. apply H. apply HA. apply H.
@@ -101,7 +101,7 @@ Module PDL (Import D : DynLogic).
 Qed.
 
  Theorem axiom_V : forall (A B : assertion) (st : state),
- ([A?]B) st <-> (A -> B) st.
+ ([A?]B) st <-> (A ]-> B) st.
  Proof.
  intros A B st. split.
  * unfold box in *. intros H. unfold impl. intros HA. apply H.
@@ -125,11 +125,15 @@ Qed.
  Qed.
 
  Theorem axiom_VII : forall (p : prog) (A : assertion) (st : state),
- ((A /|([Iteration p](A -> [p]A))) -> [Iteration p]A) st. 
+ ((A /|([Iteration p](A ]-> [p]A))) ]-> [Iteration p]A) st. 
  Proof.
- intros p A st. unfold impl at 1. intros H. destruct H as [HA HI].
- admit.
- Admitted.
-
+ intros p A st. unfold box in *. simpl in *.  
+ unfold impl. intros H. destruct H as [HA HI].
+ intros st' H. rewrite <- clos_rt_rt1n_iff in *. 
+ apply clos_refl_trans_ind_left with (R:=(progSemantics p)) (x:=st).
+ apply HA. intros y z Hyz Hy Hpyz. rewrite clos_rt_rt1n_iff in Hyz.
+ apply HI with (st':=y) (st'0:=z) in Hyz. apply Hyz. apply Hy. apply Hpyz.
+ assumption.
+ Qed.
 
 End PDL.
