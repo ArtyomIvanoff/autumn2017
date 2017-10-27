@@ -17,7 +17,8 @@ Section Compose.
   Variable R1 : U -> V -> Prop.
   Variable R2 : V -> T -> Prop.
   Inductive composeRel : U -> T -> Prop :=
-  | comp_intro (x : U) (z : T) : (exists y, R1 x y /\ R2 y z) -> composeRel x z.
+  | comp_intro (x : U) (z : T) : 
+    (exists y, R1 x y /\ R2 y z) -> composeRel x z.
 End Compose.
 
 Arguments composeRel {U} {V} {T} R1 R2 _ _.
@@ -146,15 +147,27 @@ Qed.
  Definition orA (A B : assertion) : assertion := (fun x => (A x \/ B x)).
  Notation "A \| B" := (orA A B) (at level 75, right associativity).
 
+ Lemma double_neg : forall P : Prop,
+  P -> ~~P.
+  Proof.
+  intros P H. unfold not. intros G. apply G. apply H. Qed.
+
  Theorem theorem_I : forall (p : prog) (A B : assertion) (st : state),
  (diamond p (A\|B)) st <-> ((diamond p A) \| (diamond p B)) st.
  Proof.
+ intros p A B st. split.
+ * intros H. unfold orA in *. unfold diamond in *. unfold box in *.
+   rewrite 2 neg_false in *. 
  Admitted.
 
  Theorem theorem_II : forall (p : prog) (A B : assertion) (st : state),
  ((diamond p A)/|([p] B) ]-> (diamond p (A /| B))) st.
  Proof.
- intros p A B st. unfold impl. intros H.
+ intros p A B st. unfold impl. intros H. unfold diamond in *.
+ unfold box in *. unfold andA in *. rewrite neg_false in *.
+  destruct H as [HA HB]. split.
+  + intros H1. apply HA. intros st' HP. intros A1.
+    (**apply H1 in HP. apply HP. split. apply A1. apply HB.*)
  Admitted.
 
  Theorem theorem_III : forall (p : prog) (A B : assertion) (st : state),
@@ -165,15 +178,28 @@ Qed.
  Theorem theorem_IV : forall (p : prog) (A B : assertion) (st : state),
  ([p](A\|B)) st <-> (([p]A) st)\/(([p]B) st).
  Proof.
- Admitted.
+ intros p A B st. unfold box. split.
+ * intros H. unfold orA in H. admit.
+ * intros H st' H1. destruct H as [H|H]; unfold orA;
+   [left|right]; now apply H in H1.
+ Qed.
+   
 
  Theorem theorem_V : forall (p : prog) (st : state),
  (diamond p falseA) st <-> falseA st.
  Proof.
- Admitted.
+ intros p st. split.
+ * unfold diamond. intros H. unfold box in H. rewrite neg_false in H.
+   unfold falseA in *. apply H. intros st' H1. intuition.
+ * intros H. unfold falseA in *. now exfalso.
+ Qed.
 
  Theorem theorem_VI : forall (p : prog) (A : assertion) (st : state),
  ([p] A) st <->  ~(diamond p (fun st' => ~(A st')) st).
  Proof.
+ intros p A st. unfold diamond. split.
+ * intros H. unfold not. intros H1. apply H1.
+   unfold box. intros st' HP HNA. unfold box in H. apply HNA. now apply H.
+ * unfold box. intros H st' H1. 
  Admitted.
 End PDL.
