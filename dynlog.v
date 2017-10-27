@@ -46,8 +46,10 @@ Module PDL (Import D : DynLogic).
  Definition box (pr : prog) (A : assertion) : assertion := 
    fun st => (forall st', progSemantics pr st st' -> A st').
  
- Definition skip := Test (fun _ => True).
- Definition fail := Test (fun _ => False).
+ Definition trueA : assertion := (fun _ => True).
+ Definition falseA : assertion := (fun _ => False).
+ Definition skip := Test trueA.
+ Definition fail := Test falseA.
 
  Notation "p1 ; p2" := (Sequence p1 p2) (at level 60, right associativity).
  Notation "p1 'U' p2" := (Choice p1 p2) (at level 55, right associativity).
@@ -65,7 +67,7 @@ Module PDL (Import D : DynLogic).
  Qed.
  
  Definition andA (A B : assertion) : assertion := (fun x => (A x /\ B x)).
- Notation "A /| B" := (andA A B) (at level 80, right associativity).
+ Notation "A /| B" := (andA A B) (at level 75, right associativity).
 
  Theorem axiom_II : forall (p : prog) (A B : assertion) (st : state),
  ([p](A/|B)) st <-> (([p]A) st)/\(([p]B) st).
@@ -136,4 +138,42 @@ Qed.
  assumption.
  Qed.
 
+ Definition diamond (p : prog) (A : assertion) : assertion :=
+  fun st => ~(box p (fun st' => ~(A st')) st).
+
+ Notation "< p > A" := (diamond p A) (at level 70, right associativity).
+ 
+ Definition orA (A B : assertion) : assertion := (fun x => (A x \/ B x)).
+ Notation "A \| B" := (orA A B) (at level 75, right associativity).
+
+ Theorem theorem_I : forall (p : prog) (A B : assertion) (st : state),
+ (diamond p (A\|B)) st <-> ((diamond p A) \| (diamond p B)) st.
+ Proof.
+ Admitted.
+
+ Theorem theorem_II : forall (p : prog) (A B : assertion) (st : state),
+ ((diamond p A)/|([p] B) ]-> (diamond p (A /| B))) st.
+ Proof.
+ intros p A B st. unfold impl. intros H.
+ Admitted.
+
+ Theorem theorem_III : forall (p : prog) (A B : assertion) (st : state),
+ (diamond p (A/|B)) st <-> ((diamond p A) /| (diamond p B)) st.
+ Proof.
+ Admitted.
+
+ Theorem theorem_IV : forall (p : prog) (A B : assertion) (st : state),
+ ([p](A\|B)) st <-> (([p]A) st)\/(([p]B) st).
+ Proof.
+ Admitted.
+
+ Theorem theorem_V : forall (p : prog) (st : state),
+ (diamond p falseA) st <-> falseA st.
+ Proof.
+ Admitted.
+
+ Theorem theorem_VI : forall (p : prog) (A : assertion) (st : state),
+ ([p] A) st <->  ~(diamond p (fun st' => ~(A st')) st).
+ Proof.
+ Admitted.
 End PDL.
