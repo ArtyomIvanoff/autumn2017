@@ -157,7 +157,11 @@ Qed.
  Proof.
  intros p A B st. split.
  * intros H. unfold orA in *. unfold diamond in *. unfold box in *.
-   rewrite 2 neg_false in *. 
+   rewrite 2 neg_false in *. admit.
+ * intros H. unfold orA in *. destruct H as [H|H];
+   unfold diamond in *; unfold box in *; intros HC; rewrite  neg_false in *; 
+   rewrite <- H; intros st' H1; apply HC in H1; unfold not in *; 
+   intros HA; apply H1; [now left|now right].
  Admitted.
 
  Theorem theorem_II : forall (p : prog) (A B : assertion) (st : state),
@@ -173,6 +177,19 @@ Qed.
  Theorem theorem_III : forall (p : prog) (A B : assertion) (st : state),
  (diamond p (A/|B)) st <-> ((diamond p A) /| (diamond p B)) st.
  Proof.
+ intros p A B st. split.
+ * intros H. unfold diamond in *. unfold andA. rewrite neg_false in *. 
+   rewrite neg_false in *. unfold box in *. split; split.
+   + intros HA. rewrite <- H. intros st' HP. unfold not.
+     intros HAB. apply HA in HP. destruct HAB as [HA1 HB1]. now apply HP.
+   + intros contra. now exfalso. 
+   + intros HB. rewrite <- H. intros st' HP. unfold not.
+     intros HAB. apply HB in HP. destruct HAB as [HA1 HB1]. now apply HP.
+   + intros contra. now exfalso. 
+ * intros H. unfold diamond in *. unfold andA. destruct H as [H1 H2].
+   rewrite neg_false in *. split.
+   + intros HAB. unfold box in *. unfold not in HAB. admit.
+   + intros contra. now exfalso.
  Admitted.
 
  Theorem theorem_IV : forall (p : prog) (A B : assertion) (st : state),
