@@ -138,9 +138,14 @@ Qed.
  apply HI with (st':=y) (st'0:=z) in Hyz. apply Hyz. apply Hy. apply Hpyz.
  assumption.
  Qed.
+ 
+ Definition negA (A : assertion) : assertion :=
+  fun st' => ~(A st').
+
+ Notation "-] A" := (negA A) (at level 55, right associativity).
 
  Definition diamond (p : prog) (A : assertion) : assertion :=
-  fun st => ~(box p (fun st' => ~(A st')) st).
+  fun st => ~(box p (-]A) st).
 
  Notation "< p > A" := (diamond p A) (at level 70, right associativity).
  
@@ -201,22 +206,84 @@ Qed.
    [left|right]; now apply H in H1.
  Qed.
    
-
  Theorem theorem_V : forall (p : prog) (st : state),
  (diamond p falseA) st <-> falseA st.
  Proof.
  intros p st. split.
  * unfold diamond. intros H. unfold box in H. rewrite neg_false in H.
-   unfold falseA in *. apply H. intros st' H1. intuition.
+   unfold falseA in *. apply H. intros st' H1. unfold negA. intuition.
  * intros H. unfold falseA in *. now exfalso.
  Qed.
 
  Theorem theorem_VI : forall (p : prog) (A : assertion) (st : state),
- ([p] A) st <->  ~(diamond p (fun st' => ~(A st')) st).
+ ([p] A) st <->  ~(diamond p (-] A) st).
  Proof.
  intros p A st. unfold diamond. split.
  * intros H. unfold not. intros H1. apply H1.
    unfold box. intros st' HP HNA. unfold box in H. apply HNA. now apply H.
  * unfold box. intros H st' H1. 
+ Admitted.
+
+ Theorem modal_gen : forall (p : prog) (A : assertion) (st : state),
+ (A ]-> ([p]A)) st.
+ Proof.
+ unfold impl. intros p A st HA.
+ unfold box. intros st' H. admit.
+ Admitted.
+
+ Theorem mon_diamond : forall (p : prog) (A B : assertion) (st : state),
+ ((A ]-> B) ]-> ((diamond p A)]-> (diamond p B)))st.
+ intros p A B st. unfold impl. intros HI HA. unfold diamond in *.
+ rewrite neg_false in *. split.
+ * intros HB. rewrite <- HA. unfold box in *. intros st' HP.
+   intros NA. apply HB in HP. apply HP. admit.
+ * intros contra. now exfalso.
+ Admitted.
+
+ Theorem mod_box : forall (p : prog) (A B : assertion) (st : state),
+ ((A ]-> B) ]-> ([p]A ]-> [p]B))st.
+ Proof.
+ intros p A B st. unfold impl. intros  H. unfold box. intros HA st' HP.
+ apply HA in HP. admit.
+ Admitted.
+
+ Definition hoare_triple (A : assertion) (p : prog) (B : assertion):=
+  A ]-> [p]B.
+ Notation "{{ A }}  p  {{ B }}" := (hoare_triple A p B).
+
+ Definition ifA (A : assertion) (p p' : prog) := (A? ; p) U ((-]A)? ; p'). 
+ Notation "'IFA' A 'THEN' p 'ELSE' p' 'FI'" :=
+  (ifA A p p') (at level 80, right associativity).
+ 
+ Definition whileA (A : assertion) (p : prog) :=
+ (Iteration (A? ; p)); (-] A)?.
+ Notation "'WHILE' A 'DO' p 'END'" :=
+  (whileA A p) (at level 80, right associativity).
+
+ Definition repeatP (p : prog) (A : assertion) :=
+  p; (whileA (-] A) p).
+ Notation "'REPEAT' p 'UNTIL' A 'END'" :=
+  (repeatP p A) (at level 80, right associativity).
+
+ Theorem compos_rule : forall (A B C : assertion) (p p' : prog) (st : state),
+  (hoare_triple A p B ]-> hoare_triple B p' C ]-> hoare_triple A (p;p') C) st.
+ Proof.
+ Admitted.
+ 
+ Theorem condit_rule : forall (A B C : assertion) (p p' : prog) (st : state),
+ (hoare_triple (A/|B) p C ]-> hoare_triple ((-]A)/|B) p' C ]->
+  hoare_triple B (IFA A THEN p ELSE p' FI) C) st.
+ Proof.
+ Admitted.
+
+ Theorem while_rule : forall (A B : assertion) (p : prog) (st : state),
+ (hoare_triple (A/|B) p B ]-> hoare_triple B (WHILE A DO p END) ((-]A)/|B)) st.
+ Proof.
+ Admitted.
+
+ Theorem weaken_rule : forall (A' A B B' : assertion) (p : prog) (st : state),
+ ((A' ]-> A) ]-> (hoare_triple A p B) ]-> 
+    (B ]-> B') ]-> (hoare_triple A' p B')) st.
+ Proof.
  Admitted.
 End PDL.
