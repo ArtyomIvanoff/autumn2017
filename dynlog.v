@@ -60,6 +60,7 @@ Module PDL (Import D : DynLogic).
 
  Notation "A ->> B" := (impl A B) (at level 80, right associativity).
 
+ (** See Axiom System 5.5, p.173 *)
  Theorem axiom_I : forall (p : prog) (A B : assertion) (st : state),
     ([p](A ->> B) ->> ([p]A ->> [p]B)) st.
  Proof.
@@ -152,6 +153,7 @@ Qed.
  Definition orA (A B : assertion) : assertion := (fun x => (A x \/ B x)).
  Notation "A \| B" := (orA A B) (at level 75, right associativity).
 
+ (** See Theorem 5.6, p.174 *)
  Theorem theorem_I : forall (p : prog) (A B : assertion) (st : state),
  (diamond p (A \| B)) st <-> ((diamond p A) \| (diamond p B)) st.
  Proof.
@@ -171,8 +173,7 @@ Qed.
  unfold box in *. unfold andA in *. rewrite neg_false in *.
   destruct H as [HA HB]. split.
   + intros H1. apply HA. intros st' HP. intros A1.
-    (**apply H1 in HP. apply HP. split. apply A1. apply HB.*)
- Admitted.
+   Admitted.
 
  Theorem theorem_III : forall (p : prog) (A B : assertion) (st : state),
  (diamond p (A /| B)) st <-> ((diamond p A) /| (diamond p B)) st.
@@ -219,14 +220,17 @@ Qed.
  * unfold box. intros H st' H1. 
  Admitted.
 
- Definition modal_gen (A : assertion) (p : prog) :=  A ->> [p]A.
+ (** See Theorem 5.7, p.175 *)
+ Axiom modal_gen : forall (p : prog) (A : assertion),
+  (forall st, A st) -> forall st, ([p]A) st.
  
- Definition mon_diamond (A B : assertion) (p : prog) :=
- (A ->> B) ->> ((diamond p A)->> (diamond p B)).
+ Axiom mon_diamond : forall (A B : assertion) (p : prog),
+ (forall st, (A ->> B) st) -> forall st, (diamond p A ->> diamond p B) st.
 
- Definition mod_box (A B : assertion) (p : prog) :=
- (A ->> B) ->> ([p]A ->> [p]B).
-
+ Axiom mod_box : forall (A B : assertion) (p : prog),
+ (forall st, (A ->> B) st) -> forall st, ([p]A ->> [p]B) st.
+ 
+(** See definitions, p.167 *)
  Definition hoare_triple (A : assertion) (p : prog) (B : assertion):=
   A ->> [p]B.
  Notation "{{ A }}  p  {{ B }}" := (hoare_triple A p B).
@@ -245,6 +249,7 @@ Qed.
  Notation "'REPEAT' p 'UNTIL' A 'END'" :=
   (repeatP p A) (at level 80, right associativity).
 
+ (** See Theorem 5.19, p.186 *)
  Theorem compos_rule : forall (A B C : assertion) (p p' : prog) (st : state),
   (hoare_triple A p B ->> hoare_triple B p' C ->> hoare_triple A (p;p') C) st.
  Proof.
