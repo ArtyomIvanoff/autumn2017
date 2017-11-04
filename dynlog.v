@@ -16,9 +16,8 @@ Section Compose.
   Variables U V T : Type.
   Variable R1 : U -> V -> Prop.
   Variable R2 : V -> T -> Prop.
-  Inductive composeRel : U -> T -> Prop :=
-  | comp_intro (x : U) (z : T) : 
-    (exists y, R1 x y /\ R2 y z) -> composeRel x z.
+  Definition composeRel (x : U) (z : T) : Prop :=
+    exists y, R1 x y /\ R2 y z.
 End Compose.
 
 Arguments composeRel {U} {V} {T} R1 R2 _ _.
@@ -60,76 +59,84 @@ Module PDL (Import D : DynLogic).
 
  Notation "A ->> B" := (impl A B) (at level 80, right associativity).
 
+ Definition assertImpl (A B : assertion) := forall st, A st -> B st.
+ Definition assertEquiv (A B : assertion) := assertImpl A B /\ assertImpl B A.
+ Definition valid (A : assertion) := forall st, A st.
+
+ Infix "|=" := assertImpl (at level 85, no associativity).
+ Infix "=|=" := assertEquiv (at level 90, no associativity).
+ Notation "||= A" := (valid A) (at level 90).
+
  (** See Axiom System 5.5, p.173 *)
- Theorem axiom_I : forall (p : prog) (A B : assertion) (st : state),
-    ([p](A ->> B) ->> ([p]A ->> [p]B)) st.
+ Theorem axiom_II : forall (p : prog) (A B : assertion),
+    [p](A ->> B) |= ([p]A ->> [p]B).
  Proof.
- intros p A B st. unfold impl. intros HI HA. unfold box in *.
- intros st' H. apply HI. apply H. apply HA. apply H.
+ intros p A B. unfold impl. intros st HA. unfold box in *.
+ intros H st' H1. apply HA. apply H1. apply H. apply H1.
  Qed.
  
  Definition andA (A B : assertion) : assertion := (fun x => (A x /\ B x)).
  Notation "A /| B" := (andA A B) (at level 75, right associativity).
 
- Theorem axiom_II : forall (p : prog) (A B : assertion) (st : state),
- ([p](A /| B)) st <-> (([p]A) st) /\ (([p]B) st).
+ Theorem axiom_III : forall (p : prog) (A B : assertion),
+ [p](A /| B) =|= ([p]A /| [p]B).
  Proof.
- intros p A B st. split.
- * intros H. split; unfold box in *; intros st' H1;
+ intros p A B. split.
+ * intros st H. split; unfold box in *; intros st' H1;
    apply H in H1; destruct H1 as [H1' H1'']; assumption.
- * intros [HA HB]. unfold box in *. intros st' H. split.
-   now apply HA in H. now apply HB in H.
+ * unfold assertImpl . intros st [HA HB]. unfold andA in *. 
+  intros st' H1. split. now apply HA in H1. now apply HB in H1.
  Qed.
 
- Theorem axiom_III : forall (p p': prog) (A : assertion) (st : state),
-  ([p U p']A) st <-> (([p]A) st) /\ (([p']A) st). 
+ Theorem axiom_IV : forall (p p': prog) (A : assertion),
+  [p U p']A =|= ([p]A /| [p']A). 
  Proof.
- intros p p' A st. split.
- * intros H. unfold box in *. split;
-   intros st' H1; specialize H with st';
-   simpl in H; apply H; unfold union; [now left | now right].
- * intros [H H']. unfold box in *. intros st' H1. simpl in H1.
+ intros p p' A. split.
+ * intros st H. split;
+   intros st' H1; unfold box in H; specialize H with st';
+   simpl in H; unfold union in H; apply H; [now left|now right].
+ * intros st [H H']. intros st' H1. simpl in H1.
    unfold union in H1. destruct H1 as [H1|H1]. 
    now apply H in H1. now apply H' in H1.
  Qed.  
  
- Theorem axiom_IV : forall (p p': prog) (A : assertion) (st : state),
- ([p; p']A) st <-> ([p][p']A) st.
+ Theorem axiom_V : forall (p p': prog) (A : assertion),
+ [p; p']A =|= [p][p']A.
  Proof.
- intros p p' A st. split.
- * unfold box in *. intros H st'' H1 st3 H2. apply H.
-   simpl in *. apply comp_intro. exists st''. split; assumption.  
- * unfold box in *. intros H st' H1. simpl in H1. 
-   inversion H1. subst. destruct H0 as [y [H' H'']].
-   apply H with (st':=y); assumption.
+ intros p p' A. split.
+ * intros st H st'' H1 st3 H2. apply H.
+   simpl in *. exists st''. split; assumption.  
+ * intros st' H st'' H1. simpl in H1. 
+   inversion H1. destruct H0 as [H' H''].
+   eapply H. apply H'. apply H''.
 Qed.
 
- Theorem axiom_V : forall (A B : assertion) (st : state),
- ([A?]B) st <-> (A ->> B) st.
+ Theorem axiom_VI : forall (A B : assertion),
+ [A?]B =|= (A ->> B).
  Proof.
- intros A B st. split.
- * unfold box in *. intros H. unfold impl. intros HA. apply H.
+ intros A B. split.
+ * intros st H. unfold impl. intros HA. apply H.
    simpl. split; [reflexivity|assumption].
- * unfold box in *. intros H st' HT. unfold impl in H. simpl in HT.
+ * intros st H st' HT. unfold impl in H. simpl in HT.
    destruct HT as [H1 H2].  rewrite <- H1. now apply H.
  Qed.
 
- Theorem axiom_VI : forall (p : prog) (A : assertion) (st : state),
- (A /| [p][Iteration p]A) st <-> ([Iteration p]A) st.
+ Theorem axiom_VII : forall (p : prog) (A : assertion),
+ (A /| [p][Iteration p]A) =|= [Iteration p]A.
  Proof.
- intros p A st. split.
- * unfold andA. intros [HA HI]. apply <- (axiom_IV p (Iteration p) A st) in HI .
-   unfold box in *. simpl in *. intros st' H. inversion H. subst. apply HA.
-   apply HI. apply comp_intro. exists y. split. apply H0. apply H1.
- * intros H. unfold andA. split.
+ intros p A. split.
+ * unfold andA. intros st [HA HI]. unfold box in *.
+   simpl in *. intros st' H. inversion H. subst. apply HA.
+   eapply HI. apply H0. apply H1. 
+ * intros st H. unfold andA. split.
    + unfold box in H. apply H. simpl. apply rt1n_refl.
    + unfold box at 1. intros. unfold box in *.
      intros st'' H1. apply H. simpl in *.
      apply Relation_Operators.rt1n_trans with (y:=st'). apply H0. apply H1.
  Qed.
 
- Theorem axiom_VII : forall (p : prog) (A : assertion) (st : state),
- ((A /| [Iteration p](A ->> [p]A)) ->> [Iteration p]A) st. 
+ Theorem axiom_VIII : forall (p : prog) (A : assertion),
+ (A /| [Iteration p](A ->> [p]A)) |= [Iteration p]A. 
  Proof.
  intros p A st. unfold box in *. simpl in *.  
  unfold impl. intros H. destruct H as [HA HI].
@@ -154,10 +161,10 @@ Qed.
  Notation "A \| B" := (orA A B) (at level 75, right associativity).
 
  (** See Theorem 5.6, p.174 *)
- Theorem theorem_I : forall (p : prog) (A B : assertion) (st : state),
- (diamond p (A \| B)) st <-> ((diamond p A) \| (diamond p B)) st.
+ Theorem theorem_I : forall (p : prog) (A B : assertion),
+ (diamond p (A \| B)) =|= ((diamond p A) \| (diamond p B)).
  Proof.
- intros p A B st. split.
+ intros p A B. split.
  * intros H. unfold orA in *. unfold diamond in *. unfold box in *.
    rewrite 2 neg_false in *. admit.
  * intros H. unfold orA in *. destruct H as [H|H];
