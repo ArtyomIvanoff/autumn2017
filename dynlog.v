@@ -164,78 +164,53 @@ Qed.
  Theorem theorem_I : forall (p : prog) (A B : assertion),
  (diamond p (A \| B)) =|= ((diamond p A) \| (diamond p B)).
  Proof.
- intros p A B. split.
- * intros H. unfold orA in *. unfold diamond in *. unfold box in *.
-   rewrite 2 neg_false in *. admit.
- * intros H. unfold orA in *. destruct H as [H|H];
-   unfold diamond in *; unfold box in *; intros HC; rewrite  neg_false in *; 
-   rewrite <- H; intros st' H1; apply HC in H1; unfold not in *; 
-   intros HA; apply H1; [now left|now right].
+ intros p A B.
  Admitted.
 
- Theorem theorem_II : forall (p : prog) (A B : assertion) (st : state),
- ((diamond p A) /| ([p] B) ->> (diamond p (A /| B))) st.
+ Theorem theorem_II : forall (p : prog) (A B : assertion),
+ ((diamond p A) /| [p]B) |= diamond p (A /| B).
  Proof.
- intros p A B st. unfold impl. intros H. unfold diamond in *.
- unfold box in *. unfold andA in *. rewrite neg_false in *.
-  destruct H as [HA HB]. split.
-  + intros H1. apply HA. intros st' HP. intros A1.
-   Admitted.
-
- Theorem theorem_III : forall (p : prog) (A B : assertion) (st : state),
- (diamond p (A /| B)) st <-> ((diamond p A) /| (diamond p B)) st.
- Proof.
- intros p A B st. split.
- * intros H. unfold diamond in *. unfold andA. rewrite neg_false in *. 
-   rewrite neg_false in *. unfold box in *. split; split.
-   + intros HA. rewrite <- H. intros st' HP. unfold not.
-     intros HAB. apply HA in HP. destruct HAB as [HA1 HB1]. now apply HP.
-   + intros contra. now exfalso. 
-   + intros HB. rewrite <- H. intros st' HP. unfold not.
-     intros HAB. apply HB in HP. destruct HAB as [HA1 HB1]. now apply HP.
-   + intros contra. now exfalso. 
- * intros H. unfold diamond in *. unfold andA. destruct H as [H1 H2].
-   rewrite neg_false in *. split.
-   + intros HAB. unfold box in *. unfold not in HAB. admit.
-   + intros contra. now exfalso.
+ intros p A B. 
  Admitted.
 
- Theorem theorem_IV : forall (p : prog) (A B : assertion) (st : state),
- ([p] (A \| B)) st <-> (([p]A) st) \/ (([p]B) st).
+ Theorem theorem_III : forall (p : prog) (A B : assertion),
+ (diamond p (A /| B)) =|= ((diamond p A) /| (diamond p B)).
  Proof.
- intros p A B st. unfold box. split.
+ intros p A B.
+ Admitted.
+
+ Theorem theorem_IV : forall (p : prog) (A B : assertion),
+ [p](A \| B) =|= ([p]A \| [p]B).
+ Proof.
+ intros p A B. unfold box. split.
  * intros H. unfold orA in H. admit.
- * intros H st' H1. destruct H as [H|H]; unfold orA;
+ * intros st H st' H1. destruct H as [H|H]; unfold orA;
    [left|right]; now apply H in H1.
  Qed.
    
- Theorem theorem_V : forall (p : prog) (st : state),
- (diamond p falseA) st <-> falseA st.
+ Theorem theorem_V : forall (p : prog),
+ (diamond p falseA) =|= falseA.
  Proof.
- intros p st. split.
- * unfold diamond. intros H. unfold box in H. rewrite neg_false in H.
+ intros p. split.
+ * unfold diamond. intros st H. unfold box in H. rewrite neg_false in H.
    unfold falseA in *. apply H. intros st' H1. unfold negA. intuition.
- * intros H. unfold falseA in *. now exfalso.
+ * intros st H. unfold falseA in *. now exfalso.
  Qed.
 
- Theorem theorem_VI : forall (p : prog) (A : assertion) (st : state),
- ([p] A) st <->  ~(diamond p (-] A) st).
+ Theorem theorem_VI : forall (p : prog) (A : assertion),
+ [p]A =|=  ~(diamond p (-] A)).
  Proof.
- intros p A st. unfold diamond. split.
- * intros H. unfold not. intros H1. apply H1.
-   unfold box. intros st' HP HNA. unfold box in H. apply HNA. now apply H.
- * unfold box. intros H st' H1. 
+ intros p A.
  Admitted.
 
  (** See Theorem 5.7, p.175 *)
- Axiom modal_gen : forall (p : prog) (A : assertion),
-  (forall st, A st) -> forall st, ([p]A) st.
+ Axiom modal_gen : forall (p : prog) (A : assertion), A |= [p]A.
  
  Axiom mon_diamond : forall (A B : assertion) (p : prog),
- (forall st, (A ->> B) st) -> forall st, (diamond p A ->> diamond p B) st.
+ (A ->> B) st) |= (diamond p A ->> diamond p B).
 
  Axiom mod_box : forall (A B : assertion) (p : prog),
- (forall st, (A ->> B) st) -> forall st, ([p]A ->> [p]B) st.
+ (A ->> B) |= ([p]A ->> [p]B).
  
 (** See definitions, p.167 *)
  Definition hoare_triple (A : assertion) (p : prog) (B : assertion):=
