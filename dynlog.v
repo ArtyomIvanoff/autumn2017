@@ -287,62 +287,48 @@ Admitted.
  diamond p (A \| B) =|= diamond p A \| diamond p B.
  Proof.
 intros p A B.
-unfold diamond.
+unfold diamond. 
 now rewrite deMorgan1, axiom_II, deMorgan2.
 Qed.
 
- Theorem theorem_II : forall (p : prog) (A B : assertion) (st : state),
- ((diamond p A) /| ([p] B) ->> (diamond p (A /| B))) st.
+ Theorem theorem_II : forall (p : prog) (A B : assertion),
+ ((diamond p A) /| [p]B) |= diamond p (A /| B).
  Proof.
- intros p A B st. unfold impl. intros H. unfold diamond in *.
- unfold box in *. unfold andA in *. rewrite neg_false in *.
-  destruct H as [HA HB]. split.
-  + intros H1. apply HA. intros st' HP. intros A1.
-   Admitted.
-
- Theorem theorem_III : forall (p : prog) (A B : assertion) (st : state),
- (diamond p (A /| B)) st <-> ((diamond p A) /| (diamond p B)) st.
+ intros p A B. unfold diamond. intros st H.
+ Admitted.
+ 
+ Theorem theorem_III : forall (p : prog) (A B : assertion),
+ [p](A \| B) =|= ([p]A \| [p]B).
  Proof.
- intros p A B st. split.
- * intros H. unfold diamond in *. unfold andA. rewrite neg_false in *. 
-   rewrite neg_false in *. unfold box in *. split; split.
-   + intros HA. rewrite <- H. intros st' HP. unfold not.
-     intros HAB. apply HA in HP. destruct HAB as [HA1 HB1]. now apply HP.
-   + intros contra. now exfalso. 
-   + intros HB. rewrite <- H. intros st' HP. unfold not.
-     intros HAB. apply HB in HP. destruct HAB as [HA1 HB1]. now apply HP.
-   + intros contra. now exfalso. 
- * intros H. unfold diamond in *. unfold andA. destruct H as [H1 H2].
-   rewrite neg_false in *. split.
-   + intros HAB. unfold box in *. unfold not in HAB. admit.
-   + intros contra. now exfalso.
  Admitted.
 
- Theorem theorem_IV : forall (p : prog) (A B : assertion) (st : state),
- ([p] (A \| B)) st <-> (([p]A) st) \/ (([p]B) st).
+  Theorem theorem_IV : forall (p : prog) (A B : assertion),
+ (diamond p (A /| B)) =|= ((diamond p A) /| (diamond p B)).
  Proof.
- intros p A B st. unfold box. split.
- * intros H. unfold orA in H. admit.
- * intros H st' H1. destruct H as [H|H]; unfold orA;
-   [left|right]; now apply H in H1.
- Qed.
-   
- Theorem theorem_V : forall (p : prog) (st : state),
- (diamond p falseA) st <-> falseA st.
- Proof.
- intros p st. split.
- * unfold diamond. intros H. unfold box in H. rewrite neg_false in H.
-   unfold falseA in *. apply H. intros st' H1. unfold negA. intuition.
- * intros H. unfold falseA in *. now exfalso.
+ intros p A B. unfold diamond. rewrite deMorgan2. rewrite <- deMorgan1.
+ now rewrite theorem_III. 
  Qed.
 
- Theorem theorem_VI : forall (p : prog) (A : assertion) (st : state),
- ([p] A) st <->  ~(diamond p (-] A) st).
+ Theorem theorem_V : forall (p : prog),
+ (diamond p falseA) =|= falseA.
  Proof.
- intros p A st. unfold diamond. split.
- * intros H. unfold not. intros H1. apply H1.
-   unfold box. intros st' HP HNA. unfold box in H. apply HNA. now apply H.
- * unfold box. intros H st' H1. 
+ intros p. split.
+ * unfold diamond. intros H. unfold box in H. unfold negA in H.
+   rewrite neg_false in H. unfold falseA in *. apply H. 
+   intros st' H1. unfold negA. intuition.
+ * intros H. unfold falseA in *. now exfalso.
+ Qed.
+ 
+ Definition double_neg_elim := forall P:Prop,
+  ~~P -> P.
+
+ Theorem theorem_VI : forall (p : prog) (A : assertion),
+ [p]A =|=  ¬(diamond p (¬ A)).
+ Proof.
+ intros p A. unfold diamond. apply equivImpl. split.
+ * intros st H. unfold negA. intros H1. apply H1.
+   intros st' H2. apply H in H2. intros HNNA. apply HNNA. apply H2.
+ * intros st H. unfold negA in H. 
  Admitted.
 
  (** See Theorem 5.7, p.175 *)
