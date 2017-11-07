@@ -1,7 +1,8 @@
 Require Import Notations.
 Require Import Logic.
 Require Import Relations.
-Require Import Coq.Setoids.Setoid.
+Require Import Setoid.
+Require Import Classical.
 
 Arguments clos_refl_trans_1n {A} R x _.
 Arguments clos_trans {A} R x _.
@@ -24,6 +25,11 @@ Arguments composeRel {U} {V} {T} R1 R2 _ _.
 
 Module PDL (Import D : DynLogic).
  Definition assertion := state -> Prop.
+
+(*
+Bind Scope assertion_scope with assertion.
+Delimit Scope hprop_scope with assert.
+*)
 
  Definition impl (A B : assertion) : assertion := (fun x => (A x -> B x)).
  
@@ -60,82 +66,205 @@ Module PDL (Import D : DynLogic).
  Notation "A ->> B" := (impl A B) (at level 80, right associativity).
 
  Definition assertImpl (A B : assertion) := forall st, A st -> B st.
- Definition assertEquiv (A B : assertion) := assertImpl A B /\ assertImpl B A.
+ Definition assertEquiv (A B : assertion) := forall st, A st <-> B st.
  Definition valid (A : assertion) := forall st, A st.
-
+  
  Infix "|=" := assertImpl (at level 85, no associativity).
  Infix "=|=" := assertEquiv (at level 90, no associativity).
  Notation "||= A" := (valid A) (at level 90).
 
- (** See Axiom System 5.5, p.173 *)
- Theorem axiom_II : forall (p : prog) (A B : assertion),
-    [p](A ->> B) |= ([p]A ->> [p]B).
+ Theorem equivImpl : forall A B, A =|= B <-> (A |= B) /\ (B |= A).
  Proof.
- intros p A B. unfold impl. intros st HA. unfold box in *.
- intros H st' H1. apply HA. apply H1. apply H. apply H1.
+ intros A B; unfold assertImpl, assertEquiv. firstorder.
  Qed.
- 
+
  Definition andA (A B : assertion) : assertion := (fun x => (A x /\ B x)).
  Notation "A /| B" := (andA A B) (at level 75, right associativity).
 
- Theorem axiom_III : forall (p : prog) (A B : assertion),
- [p](A /| B) =|= ([p]A /| [p]B).
+ Definition negA (A : assertion) : assertion :=
+  fun st' => ~(A st').
+
+ Notation "¬ A" := (negA A) (at level 55, right associativity).
+
+ Definition diamond (p : prog) (A : assertion) : assertion := ¬[p](¬A).
+
+ Notation "< p > A" := (diamond p A) (at level 70, right associativity).
+ 
+ Definition orA (A B : assertion) : assertion := (fun x => (A x \/ B x)).
+ Notation "A \| B" := (orA A B) (at level 75, right associativity).
+
+Theorem implIntro : forall A B, ||= A ->> B <-> A |= B.
+Proof.
+intros A B; unfold assertImpl, valid, impl; split; trivial.
+Qed.
+
+Theorem implIntro1 : forall A B C, A |= B ->> C <-> A /| B |= C.
+Proof.
+intros A B C. unfold assertImpl, impl, andA. firstorder.
+Qed.
+
+Proposition assertImplRefl : Reflexive assertImpl.
+Admitted.
+
+Proposition assertImplTrans : Transitive assertImpl.
+Admitted.
+
+Add Parametric Relation : assertion assertImpl
+  reflexivity proved by assertImplRefl
+  transitivity proved by assertImplTrans
+as AssertImplSetoid.
+
+Proposition assertEquivRefl : Reflexive assertEquiv.
+Proof. Admitted.
+
+Proposition assertEquivSymm : Symmetric assertEquiv.
+Proof. Admitted.
+
+Proposition assertEquivTrans : Transitive assertEquiv.
+Proof. Admitted.
+
+Add Parametric Relation : assertion assertEquiv
+  reflexivity proved by assertEquivRefl
+  symmetry proved by assertEquivSymm
+  transitivity proved by assertEquivTrans
+as AssertEquivSetoid.
+
+Add Parametric Morphism : andA
+ with signature (assertEquiv ==> assertEquiv ==> assertEquiv)
+ as andEquivMorphism.
+Admitted.
+
+Add Parametric Morphism : andA
+ with signature (assertImpl ++> assertImpl ++> assertImpl)
+ as andImplMorphism.
+Admitted.
+
+(*
+Goal forall A B C, A |= B -> A /| C |= B /| C.
+intros A B C H. now rewrite H.
+*)
+
+Add Parametric Morphism : orA
+ with signature (assertEquiv ==> assertEquiv ==> assertEquiv)
+ as orEquivMorphism.
+Admitted.
+
+Add Parametric Morphism : orA
+ with signature (assertImpl ++> assertImpl ++> assertImpl)
+ as orImplMorphism.
+Admitted.
+
+Add Parametric Morphism : impl
+ with signature (assertEquiv ==> assertEquiv ==> assertEquiv)
+ as implEquivMorphism.
+Admitted.
+
+Add Parametric Morphism : impl
+ with signature (assertImpl --> assertImpl ++> assertImpl)
+ as implImplMorphism.
+Proof.
+intros A B H1 A' B' H2 st H3 H4. now apply H2, H3, H1.
+Qed.
+
+Add Parametric Morphism : negA
+ with signature (assertEquiv ==> assertEquiv)
+ as negEquivMorphism.
+Admitted.
+
+Add Parametric Morphism : negA
+ with signature (assertImpl --> assertImpl)
+ as negImplMorphism.
+Proof.
+intros A B H st; unfold negA; auto.
+Qed.
+
+ (** See Axiom System 5.5, p.173 *)
+ Theorem axiom_I : forall (p : prog) (A B : assertion),
+    ||= ([p](A ->> B) ->> ([p]A ->> [p]B)).
  Proof.
- intros p A B. split.
+ intros p A B. apply implIntro. unfold impl. 
+ intros st HA. unfold box in *. intros H st' H1. 
+ apply HA. apply H1. apply H. apply H1.
+ Qed.
+ 
+(* Корректность правила GEN *)
+Theorem genSound: forall p A, ||= A -> ||= [p]A.
+Admitted.
+
+Add Parametric Morphism (p : prog) : (box p)
+ with signature (assertImpl ++> assertImpl)
+ as boxImplMorphism.
+Proof.
+intros A B H. rewrite <- implIntro in H. apply (genSound p) in H.
+intro st; apply axiom_I, H.
+Qed.
+
+Add Parametric Morphism (p : prog) : (box p)
+ with signature (assertEquiv ==> assertEquiv)
+ as boxEquivMorphism.
+Admitted.
+(* Здесь можно использовать equivImpl и переписывание A в B
+и наоборот под [p] *)
+
+ Theorem axiom_II : forall (p : prog) (A B : assertion),
+   ([p](A /| B)) =|= ([p]A /| [p]B).
+ Proof.
+ intros p A B. apply equivImpl. split.
  * intros st H. split; unfold box in *; intros st' H1;
    apply H in H1; destruct H1 as [H1' H1'']; assumption.
  * unfold assertImpl . intros st [HA HB]. unfold andA in *. 
-  intros st' H1. split. now apply HA in H1. now apply HB in H1.
+   intros st' H1. split. now apply HA in H1. now apply HB in H1. 
+ Qed.
+
+ Theorem axiom_III : forall (p p': prog) (A : assertion),
+  [p U p']A =|= [p]A /| [p']A.
+ Proof.
+ intros p p' A. split.
+ * intros H. split;
+   intros st' H1; unfold box in H; specialize H with st';
+   simpl in H; unfold union in H; apply H; [now left|now right].
+ * intros [H H']. intros st' H1. simpl in H1.
+   unfold union in H1. destruct H1 as [H1|H1]. 
+   now apply H in H1. now apply H' in H1.
  Qed.
 
  Theorem axiom_IV : forall (p p': prog) (A : assertion),
-  [p U p']A =|= ([p]A /| [p']A). 
+  [p; p']A =|= [p][p']A.
  Proof.
  intros p p' A. split.
- * intros st H. split;
-   intros st' H1; unfold box in H; specialize H with st';
-   simpl in H; unfold union in H; apply H; [now left|now right].
- * intros st [H H']. intros st' H1. simpl in H1.
-   unfold union in H1. destruct H1 as [H1|H1]. 
-   now apply H in H1. now apply H' in H1.
- Qed.  
- 
- Theorem axiom_V : forall (p p': prog) (A : assertion),
- [p; p']A =|= [p][p']A.
- Proof.
- intros p p' A. split.
- * intros st H st'' H1 st3 H2. apply H.
+ * intros H st'' H1 st3 H2. apply H.
    simpl in *. exists st''. split; assumption.  
- * intros st' H st'' H1. simpl in H1. 
+ * intros H st'' H1. simpl in H1. 
    inversion H1. destruct H0 as [H' H''].
    eapply H. apply H'. apply H''.
-Qed.
+ Qed.
 
- Theorem axiom_VI : forall (A B : assertion),
- [A?]B =|= (A ->> B).
+ Theorem axiom_V : forall (A B : assertion),
+  [A?]B =|= (A ->> B).
  Proof.
  intros A B. split.
- * intros st H. unfold impl. intros HA. apply H.
+ * intros H. unfold impl. intros HA. apply H.
    simpl. split; [reflexivity|assumption].
- * intros st H st' HT. unfold impl in H. simpl in HT.
+ * intros H st' HT. unfold impl in H. simpl in HT.
    destruct HT as [H1 H2].  rewrite <- H1. now apply H.
  Qed.
 
- Theorem axiom_VII : forall (p : prog) (A : assertion),
- (A /| [p][Iteration p]A) =|= [Iteration p]A.
+ Theorem axiom_VI : forall (p : prog) (A : assertion),
+ A /| [p][Iteration p]A =|= [Iteration p]A.
  Proof.
  intros p A. split.
- * unfold andA. intros st [HA HI]. unfold box in *.
-   simpl in *. intros st' H. inversion H. subst. apply HA.
-   eapply HI. apply H0. apply H1. 
- * intros st H. unfold andA. split.
+ * unfold andA. intros [HA HI]. (*setoid_rewrite <- axiom_IV in HI.*)
+   apply <- (axiom_IV p (Iteration p) A st) in HI .
+   unfold box in *. simpl in *. intros st' H. inversion H. subst. apply HA.
+   apply HI. subst. unfold composeRel. exists y. split. apply H0. apply H1.
+ * intros H. unfold andA. split.
    + unfold box in H. apply H. simpl. apply rt1n_refl.
    + unfold box at 1. intros. unfold box in *.
      intros st'' H1. apply H. simpl in *.
      apply Relation_Operators.rt1n_trans with (y:=st'). apply H0. apply H1.
  Qed.
 
- Theorem axiom_VIII : forall (p : prog) (A : assertion),
+ Theorem axiom_VII : forall (p : prog) (A : assertion),
  (A /| [Iteration p](A ->> [p]A)) |= [Iteration p]A. 
  Proof.
  intros p A st. unfold box in *. simpl in *.  
@@ -147,70 +276,84 @@ Qed.
  assumption.
  Qed.
  
- Definition negA (A : assertion) : assertion :=
-  fun st' => ~(A st').
+Theorem deMorgan1 : forall A B, ¬(A \| B) =|= ¬A /| ¬B.
+Admitted.
 
- Notation "-] A" := (negA A) (at level 55, right associativity).
-
- Definition diamond (p : prog) (A : assertion) : assertion :=
-  fun st => ~(box p (-]A) st).
-
- Notation "< p > A" := (diamond p A) (at level 70, right associativity).
- 
- Definition orA (A B : assertion) : assertion := (fun x => (A x \/ B x)).
- Notation "A \| B" := (orA A B) (at level 75, right associativity).
+Theorem deMorgan2 : forall A B, ¬(A /| B) =|= ¬A \| ¬B.
+Admitted.
 
  (** See Theorem 5.6, p.174 *)
  Theorem theorem_I : forall (p : prog) (A B : assertion),
- (diamond p (A \| B)) =|= ((diamond p A) \| (diamond p B)).
+ diamond p (A \| B) =|= diamond p A \| diamond p B.
  Proof.
- intros p A B.
+intros p A B.
+unfold diamond.
+now rewrite deMorgan1, axiom_II, deMorgan2.
+Qed.
+
+ Theorem theorem_II : forall (p : prog) (A B : assertion) (st : state),
+ ((diamond p A) /| ([p] B) ->> (diamond p (A /| B))) st.
+ Proof.
+ intros p A B st. unfold impl. intros H. unfold diamond in *.
+ unfold box in *. unfold andA in *. rewrite neg_false in *.
+  destruct H as [HA HB]. split.
+  + intros H1. apply HA. intros st' HP. intros A1.
+   Admitted.
+
+ Theorem theorem_III : forall (p : prog) (A B : assertion) (st : state),
+ (diamond p (A /| B)) st <-> ((diamond p A) /| (diamond p B)) st.
+ Proof.
+ intros p A B st. split.
+ * intros H. unfold diamond in *. unfold andA. rewrite neg_false in *. 
+   rewrite neg_false in *. unfold box in *. split; split.
+   + intros HA. rewrite <- H. intros st' HP. unfold not.
+     intros HAB. apply HA in HP. destruct HAB as [HA1 HB1]. now apply HP.
+   + intros contra. now exfalso. 
+   + intros HB. rewrite <- H. intros st' HP. unfold not.
+     intros HAB. apply HB in HP. destruct HAB as [HA1 HB1]. now apply HP.
+   + intros contra. now exfalso. 
+ * intros H. unfold diamond in *. unfold andA. destruct H as [H1 H2].
+   rewrite neg_false in *. split.
+   + intros HAB. unfold box in *. unfold not in HAB. admit.
+   + intros contra. now exfalso.
  Admitted.
 
- Theorem theorem_II : forall (p : prog) (A B : assertion),
- ((diamond p A) /| [p]B) |= diamond p (A /| B).
+ Theorem theorem_IV : forall (p : prog) (A B : assertion) (st : state),
+ ([p] (A \| B)) st <-> (([p]A) st) \/ (([p]B) st).
  Proof.
- intros p A B. 
- Admitted.
-
- Theorem theorem_III : forall (p : prog) (A B : assertion),
- (diamond p (A /| B)) =|= ((diamond p A) /| (diamond p B)).
- Proof.
- intros p A B.
- Admitted.
-
- Theorem theorem_IV : forall (p : prog) (A B : assertion),
- [p](A \| B) =|= ([p]A \| [p]B).
- Proof.
- intros p A B. unfold box. split.
+ intros p A B st. unfold box. split.
  * intros H. unfold orA in H. admit.
- * intros st H st' H1. destruct H as [H|H]; unfold orA;
+ * intros H st' H1. destruct H as [H|H]; unfold orA;
    [left|right]; now apply H in H1.
  Qed.
    
- Theorem theorem_V : forall (p : prog),
- (diamond p falseA) =|= falseA.
+ Theorem theorem_V : forall (p : prog) (st : state),
+ (diamond p falseA) st <-> falseA st.
  Proof.
- intros p. split.
- * unfold diamond. intros st H. unfold box in H. rewrite neg_false in H.
+ intros p st. split.
+ * unfold diamond. intros H. unfold box in H. rewrite neg_false in H.
    unfold falseA in *. apply H. intros st' H1. unfold negA. intuition.
- * intros st H. unfold falseA in *. now exfalso.
+ * intros H. unfold falseA in *. now exfalso.
  Qed.
 
- Theorem theorem_VI : forall (p : prog) (A : assertion),
- [p]A =|=  ~(diamond p (-] A)).
+ Theorem theorem_VI : forall (p : prog) (A : assertion) (st : state),
+ ([p] A) st <->  ~(diamond p (-] A) st).
  Proof.
- intros p A.
+ intros p A st. unfold diamond. split.
+ * intros H. unfold not. intros H1. apply H1.
+   unfold box. intros st' HP HNA. unfold box in H. apply HNA. now apply H.
+ * unfold box. intros H st' H1. 
  Admitted.
 
  (** See Theorem 5.7, p.175 *)
- Axiom modal_gen : forall (p : prog) (A : assertion), A |= [p]A.
+ Axiom modal_gen : forall (p : prog) (A : assertion),
+  (forall st, A st) -> forall st, ([p]A) st.
  
  Axiom mon_diamond : forall (A B : assertion) (p : prog),
- (A ->> B) st) |= (diamond p A ->> diamond p B).
+ (forall st, (A ->> B) st) -> forall st, (diamond p A ->> diamond p B) st.
 
  Axiom mod_box : forall (A B : assertion) (p : prog),
- (A ->> B) |= ([p]A ->> [p]B).
+ (forall st, (A ->> B) st) -> forall st, ([p]A ->> [p]B) st.
  
 (** See definitions, p.167 *)
  Definition hoare_triple (A : assertion) (p : prog) (B : assertion):=
