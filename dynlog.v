@@ -290,16 +290,25 @@ intros p A B.
 unfold diamond. 
 now rewrite deMorgan1, axiom_II, deMorgan2.
 Qed.
-
- Theorem theorem_II : forall (p : prog) (A B : assertion),
- ((diamond p A) /| [p]B) |= diamond p (A /| B).
- Proof.
- intros p A B. unfold diamond. intros st H.
- Admitted.
  
+ Axiom double_neg_elim : forall P:Prop,
+  ~~P -> P.
+
+ Theorem theorem_II : forall (p : prog) (A : assertion),
+ [p]A =|=  ¬(diamond p (¬ A)).
+ Proof.
+ intros p A. unfold diamond. apply equivImpl. split.
+ * intros st H. unfold negA. intros H1. apply H1.
+   intros st' H2. apply H in H2. intros HNNA. apply HNNA. apply H2.
+ * intros st H. unfold negA in H. apply double_neg_elim in H. 
+   unfold box. intros st' HP. apply H in HP. now apply double_neg_elim in HP. 
+ Qed.
+
  Theorem theorem_III : forall (p : prog) (A B : assertion),
  [p](A \| B) =|= ([p]A \| [p]B).
  Proof.
+ intros p A B. apply equivImpl. split.
+ * intros st HAB. 
  Admitted.
 
   Theorem theorem_IV : forall (p : prog) (A B : assertion),
@@ -308,7 +317,7 @@ Qed.
  intros p A B. unfold diamond. rewrite deMorgan2. rewrite <- deMorgan1.
  now rewrite theorem_III. 
  Qed.
-
+ 
  Theorem theorem_V : forall (p : prog),
  (diamond p falseA) =|= falseA.
  Proof.
@@ -319,16 +328,15 @@ Qed.
  * intros H. unfold falseA in *. now exfalso.
  Qed.
  
- Definition double_neg_elim := forall P:Prop,
-  ~~P -> P.
-
- Theorem theorem_VI : forall (p : prog) (A : assertion),
- [p]A =|=  ¬(diamond p (¬ A)).
+  Theorem theorem_VI : forall (p : prog) (A B : assertion),
+ ((diamond p A) /| [p]B) |= diamond p (A /| B).
  Proof.
- intros p A. unfold diamond. apply equivImpl. split.
- * intros st H. unfold negA. intros H1. apply H1.
-   intros st' H2. apply H in H2. intros HNNA. apply HNNA. apply H2.
- * intros st H. unfold negA in H. 
+ intros p A B. assert(H:forall p' A', [p']A' |= diamond p' A').
+ { intros p' A' st' HP. unfold diamond. unfold box in *. 
+   unfold negA. apply neg_false. split.
+   * intros H1. admit.
+   * intros contra. now exfalso. }
+ rewrite H. (* rewrite theorem_IV*)
  Admitted.
 
  (** See Theorem 5.7, p.175 *)
