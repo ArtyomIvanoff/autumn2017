@@ -253,7 +253,7 @@ Admitted.
  A /| [p][Iteration p]A =|= [Iteration p]A.
  Proof.
  intros p A. split.
- * unfold andA. intros [HA HI]. (*setoid_rewrite <- axiom_IV in HI.*)
+ * unfold andA. intros [HA HI]. (* не работает setoid_rewrite <- axiom_IV in HI. *)
    apply <- (axiom_IV p (Iteration p) A st) in HI .
    unfold box in *. simpl in *. intros st' H. inversion H. subst. apply HA.
    apply HI. subst. unfold composeRel. exists y. split. apply H0. apply H1.
@@ -305,17 +305,18 @@ Qed.
  Qed.
 
  Theorem theorem_III : forall (p : prog) (A B : assertion),
- [p](A \| B) =|= ([p]A \| [p]B).
+ ([p]A \| [p]B) |= [p](A \| B).  
  Proof.
- intros p A B. apply equivImpl. split.
- * intros st HAB. 
- Admitted.
+ intros p A B. intros st HAB. destruct HAB as [HA|HB];
+ unfold box; intros st' H; [left|right]; [apply HA|apply HB]; apply H.
+ Qed.
 
   Theorem theorem_IV : forall (p : prog) (A B : assertion),
- (diamond p (A /| B)) =|= ((diamond p A) /| (diamond p B)).
+  (diamond p (A /| B)) |= ((diamond p A) /| (diamond p B)).
  Proof.
- intros p A B. unfold diamond. rewrite deMorgan2. rewrite <- deMorgan1.
- now rewrite theorem_III. 
+ intros p A B. intros st HAB. unfold diamond in *. split;
+ unfold negA in *; unfold box in *; intros H; apply HAB;
+ intros st' HP; apply or_not_and; [left|right]; now apply H in HP.
  Qed.
  
  Theorem theorem_V : forall (p : prog),
@@ -327,29 +328,19 @@ Qed.
    intros st' H1. unfold negA. intuition.
  * intros H. unfold falseA in *. now exfalso.
  Qed.
- 
- Theorem boxToDiam : forall p' A', [p']A' |= diamond p' A'.
- Proof.
- intros p' A'. intros st' HP. unfold diamond. unfold box in *. 
- unfold negA. unfold not. 
- Admitted.
 
-  Theorem theorem_VI : forall (p : prog) (A B : assertion),
+ Theorem theorem_VI : forall (p : prog) (A B : assertion),
  ((diamond p A) /| [p]B) |= diamond p (A /| B).
  Proof.
- intros p A B. rewrite boxToDiam.
- assert(H : (diamond p (A /| B)) =|= ((diamond p A) /| (diamond p B))).
- {  apply theorem_IV. }
-  rewrite equivImpl in H. destruct H as [H1 H2]. apply H2.
- Qed. 
+ intros p A B. intros st Hdb. 
+ Admitted.
 
  (** See Theorem 5.7, p.175 *)
  Theorem monDiamondSound : forall (A B : assertion) (p : prog),
  ||=(A ->> B) -> ||=(diamond p A ->> diamond p B).
  Proof.
  intros A B p. intros H st.
- intros HdA. rewrite implIntro in H. 
- (* now rewrite H in HdA. *)
+ intros HdA. rewrite implIntro in H. (* now rewrite H in HdA.  *)
  Admitted.
 
  Theorem modBoxSound : forall (A B : assertion) (p : prog),
@@ -366,34 +357,36 @@ Qed.
   A ->> [p]B.
  Notation "{{ A }}  p  {{ B }}" := (hoare_triple A p B).
 
- Definition ifA (A : assertion) (p p' : prog) := (A? ; p) U ((-]A)? ; p'). 
+ Definition ifA (A : assertion) (p p' : prog) := (A? ; p) U ((¬A)? ; p'). 
  Notation "'IFA' A 'THEN' p 'ELSE' p' 'FI'" :=
   (ifA A p p') (at level 80, right associativity).
  
  Definition whileA (A : assertion) (p : prog) :=
- (Iteration (A? ; p)); (-] A)?.
+ (Iteration (A? ; p)); (¬A)?.
  Notation "'WHILE' A 'DO' p 'END'" :=
   (whileA A p) (at level 80, right associativity).
 
  Definition repeatP (p : prog) (A : assertion) :=
-  p; (whileA (-] A) p).
+  p; (whileA (¬A) p).
  Notation "'REPEAT' p 'UNTIL' A 'END'" :=
   (repeatP p A) (at level 80, right associativity).
 
  (** See Theorem 5.19, p.186 *)
- Theorem compos_rule : forall (A B C : assertion) (p p' : prog) (st : state),
-  (hoare_triple A p B ->> hoare_triple B p' C ->> hoare_triple A (p;p') C) st.
+ Theorem compos_rule : forall (A B C : assertion) (p p' : prog),
+  ||=(hoare_triple A p B ->> hoare_triple B p' C ->> hoare_triple A (p;p') C).
  Proof.
+ intros A B C p p' st HAB HBC. 
  Admitted.
  
- Theorem condit_rule : forall (A B C : assertion) (p p' : prog) (st : state),
- (hoare_triple (A /| B) p C ->> hoare_triple ((-]A) /| B) p' C ->>
-  hoare_triple B (IFA A THEN p ELSE p' FI) C) st.
+ Theorem condit_rule : forall (A B C : assertion) (p p' : prog),
+ ||=(hoare_triple (A /| B) p C ->> hoare_triple ((¬A) /| B) p' C ->>
+  hoare_triple B (IFA A THEN p ELSE p' FI) C).
  Proof.
+ intros A B C p p' st HAB HNAB. 
  Admitted.
 
  Theorem while_rule : forall (A B : assertion) (p : prog) (st : state),
- (hoare_triple (A /| B) p B ->> hoare_triple B (WHILE A DO p END) ((-]A) /| B)) st.
+ (hoare_triple (A /| B) p B ->> hoare_triple B (WHILE A DO p END) ((¬A) /| B)) st.
  Proof.
  Admitted.
 
