@@ -340,16 +340,24 @@ Qed.
  Admitted.
 
  (** See Theorem 5.7, p.175 *)
- Axiom modal_gen : forall (p : prog) (A : assertion),
-  (forall st, A st) -> forall st, ([p]A) st.
- 
- Axiom mon_diamond : forall (A B : assertion) (p : prog),
- (forall st, (A ->> B) st) -> forall st, (diamond p A ->> diamond p B) st.
+ Theorem monDiamondSound : forall (A B : assertion) (p : prog),
+ ||=(A ->> B) -> ||=(diamond p A ->> diamond p B).
+ Proof.
+ intros A B p. intros H st.
+ intros HdA.
+ Admitted.
 
- Axiom mod_box : forall (A B : assertion) (p : prog),
- (forall st, (A ->> B) st) -> forall st, ([p]A ->> [p]B) st.
- 
-(** See definitions, p.167 *)
+ Theorem modBoxSound : forall (A B : assertion) (p : prog),
+ ||=(A ->> B) -> ||=([p]A ->> [p]B).
+ Proof.
+ intros A B p. intros H st.
+ assert (H1 : ([p](A ->> B) |= ([p]A ->> [p]B)) ).
+ { rewrite <- implIntro. apply axiom_I. } apply H1. 
+  now apply genSound.
+ Qed.
+
+
+ (** See definitions, p.167 *)
  Definition hoare_triple (A : assertion) (p : prog) (B : assertion):=
   A ->> [p]B.
  Notation "{{ A }}  p  {{ B }}" := (hoare_triple A p B).
