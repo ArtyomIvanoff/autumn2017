@@ -328,23 +328,28 @@ Qed.
  * intros H. unfold falseA in *. now exfalso.
  Qed.
  
+ Theorem boxToDiam : forall p' A', [p']A' |= diamond p' A'.
+ Proof.
+ intros p' A'. intros st' HP. unfold diamond. unfold box in *. 
+ unfold negA. unfold not. 
+ Admitted.
+
   Theorem theorem_VI : forall (p : prog) (A B : assertion),
  ((diamond p A) /| [p]B) |= diamond p (A /| B).
  Proof.
- intros p A B. assert(H:forall p' A', [p']A' |= diamond p' A').
- { intros p' A' st' HP. unfold diamond. unfold box in *. 
-   unfold negA. apply neg_false. split.
-   * intros H1. admit.
-   * intros contra. now exfalso. }
- rewrite H. (* rewrite theorem_IV*)
- Admitted.
+ intros p A B. rewrite boxToDiam.
+ assert(H : (diamond p (A /| B)) =|= ((diamond p A) /| (diamond p B))).
+ {  apply theorem_IV. }
+  rewrite equivImpl in H. destruct H as [H1 H2]. apply H2.
+ Qed. 
 
  (** See Theorem 5.7, p.175 *)
  Theorem monDiamondSound : forall (A B : assertion) (p : prog),
  ||=(A ->> B) -> ||=(diamond p A ->> diamond p B).
  Proof.
  intros A B p. intros H st.
- intros HdA.
+ intros HdA. rewrite implIntro in H. 
+ (* now rewrite H in HdA. *)
  Admitted.
 
  Theorem modBoxSound : forall (A B : assertion) (p : prog),
@@ -353,11 +358,10 @@ Qed.
  intros A B p. intros H st.
  assert (H1 : ([p](A ->> B) |= ([p]A ->> [p]B)) ).
  { rewrite <- implIntro. apply axiom_I. } apply H1. 
-  now apply genSound.
+ now apply genSound.
  Qed.
 
-
- (** See definitions, p.167 *)
+(** See definitions, p.167 *)
  Definition hoare_triple (A : assertion) (p : prog) (B : assertion):=
   A ->> [p]B.
  Notation "{{ A }}  p  {{ B }}" := (hoare_triple A p B).
