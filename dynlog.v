@@ -332,7 +332,7 @@ Qed.
  Theorem theorem_VI : forall (p : prog) (A B : assertion),
  ((diamond p A) /| [p]B) |= diamond p (A /| B).
  Proof.
- intros p A B. intros st Hdb. 
+ intros p A B. intros st Hdb. unfold diamond in *.
  Admitted.
 
  (** See Theorem 5.7, p.175 *)
@@ -340,8 +340,11 @@ Qed.
  ||=(A ->> B) -> ||=(diamond p A ->> diamond p B).
  Proof.
  intros A B p. intros H st.
- intros HdA. rewrite implIntro in H. (* now rewrite H in HdA.  *)
- Admitted.
+ intros HdA. rewrite implIntro in H.
+ unfold diamond in *. unfold negA in *. unfold not in *.
+ intros H1. unfold box in *. apply HdA. intros st' HP HA.
+ apply H1 with st'. apply HP. unfold assertImpl in H. now apply H.
+ Qed.
 
  Theorem modBoxSound : forall (A B : assertion) (p : prog),
  ||=(A ->> B) -> ||=([p]A ->> [p]B).
@@ -373,26 +376,42 @@ Qed.
 
  (** See Theorem 5.19, p.186 *)
  Theorem compos_rule : forall (A B C : assertion) (p p' : prog),
-  ||=(hoare_triple A p B ->> hoare_triple B p' C ->> hoare_triple A (p;p') C).
+  ||=(hoare_triple A p B) -> ||=(hoare_triple B p' C) -> ||=(hoare_triple A (p;p') C).
  Proof.
- intros A B C p p' st HAB HBC. 
- Admitted.
+ intros A B C p p' HAB HBC. unfold hoare_triple in *. 
+ unfold impl in *. intros st HA. apply axiom_IV. 
+ unfold box in *. intros st' HP' st'' HP''. eapply HBC. eapply HAB.
+ apply HA. apply HP'. apply HP''.
+ Qed.
  
  Theorem condit_rule : forall (A B C : assertion) (p p' : prog),
- ||=(hoare_triple (A /| B) p C ->> hoare_triple ((¬A) /| B) p' C ->>
-  hoare_triple B (IFA A THEN p ELSE p' FI) C).
+ ||=(hoare_triple (A /| B) p C) -> ||=(hoare_triple ((¬A) /| B) p' C) ->
+  ||=(hoare_triple B (IFA A THEN p ELSE p' FI) C).
  Proof.
- intros A B C p p' st HAB HNAB. 
+ intros A B C p p' HAB HNAB. unfold hoare_triple in *. 
+ unfold ifA. intros st HB. apply axiom_III.
+ split; apply axiom_IV; apply axiom_V; 
+ [intros HA|intros HNA]; [apply HAB|apply HNAB];
+ now split.
+ Qed.
+
+ Theorem while_rule : forall (A B : assertion) (p : prog),
+ ||=(hoare_triple (A /| B) p B) -> ||=(hoare_triple B (WHILE A DO p END) ((¬A) /| B)).
+ Proof.
+ intros A B p HABPB st. unfold hoare_triple in *.
+ unfold whileA. rewrite implIntro in *. intros HB st'. 
+ apply axiom_IV. apply axiom_VI. split.
+ * apply axiom_V. intros HNA. now split.
+ * unfold box. intros st0 HP0 st1 HP1 st2 HP2.
+   simpl in *. destruct HP2 as [HS HNA]. subst.
+   split. apply HNA.  
  Admitted.
 
- Theorem while_rule : forall (A B : assertion) (p : prog) (st : state),
- (hoare_triple (A /| B) p B ->> hoare_triple B (WHILE A DO p END) ((¬A) /| B)) st.
+ Theorem weaken_rule : forall (A' A B B' : assertion) (p : prog),
+ ||=(A' ->> A) -> ||=(hoare_triple A p B) -> 
+    ||=(B ->> B') -> ||=(hoare_triple A' p B').
  Proof.
- Admitted.
-
- Theorem weaken_rule : forall (A' A B B' : assertion) (p : prog) (st : state),
- ((A' ->> A) ->> (hoare_triple A p B) ->> 
-    (B ->> B') ->> (hoare_triple A' p B')) st.
- Proof.
- Admitted.
+ intros A' A B B' p HIA HAB HIB. unfold hoare_triple in *. 
+ rewrite implIntro in *. rewrite HIA, HAB, HIB. reflexivity.
+ Qed.
 End PDL.
