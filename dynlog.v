@@ -4,10 +4,7 @@ Require Import Relations.
 Require Import Setoid.
 Require Import Classical.
 
-Require Import Coq.Arith.Arith.
-Require Import Coq.Bool.Bool.
 Require Import Coq.Strings.String.
-Require Import Coq.Logic.FunctionalExtensionality.
 
 Arguments clos_refl_trans_1n {A} R x _.
 Arguments clos_trans {A} R x _.
@@ -49,6 +46,11 @@ Inductive Assign : Set :=
 
 Definition atomProg := Assign.
 
+Notation "x '::=' a" :=
+  (assign x a) (at level 60).
+
+(* Check (X ::= 3). *)
+
 (*
 Definition meanFunc (a : atomProg) :=
 match a with
@@ -57,7 +59,8 @@ end.
 *) 
 
 Definition meanFunc (a : atomProg) :=
-  let (id, rhs) := a in fun st1 st2 : state => st2 = (t_update st1 id rhs).
+  let (id, rhs) := a in 
+    fun st1 st2 : state => st2 = (t_update st1 id rhs).
 End M.
 
 Section Compose.
@@ -151,10 +154,14 @@ intros A B C. unfold assertImpl, implA, andA. firstorder.
 Qed.
 
 Proposition assertImplRefl : Reflexive assertImpl.
-Admitted.
+Proof.
+unfold Reflexive. intros A st H. assumption.
+Qed.
 
 Proposition assertImplTrans : Transitive assertImpl.
-Admitted.
+Proof.
+unfold Transitive. intros A B C HAB HBC st HA; auto.
+Qed.
 
 Add Parametric Relation : assertion assertImpl
   reflexivity proved by assertImplRefl
@@ -162,13 +169,21 @@ Add Parametric Relation : assertion assertImpl
 as AssertImplSetoid.
 
 Proposition assertEquivRefl : Reflexive assertEquiv.
-Proof. Admitted.
+Proof. 
+unfold Reflexive. intros A st. now split. 
+Qed.
 
 Proposition assertEquivSymm : Symmetric assertEquiv.
-Proof. Admitted.
-
+Proof. 
+unfold Symmetric. intros x y H st. unfold assertEquiv in H.
+firstorder.
+Qed.
+ 
 Proposition assertEquivTrans : Transitive assertEquiv.
-Proof. Admitted.
+Proof. 
+unfold Transitive. intros A B C HAB HBC st. 
+unfold assertEquiv in *. firstorder.
+Qed.
 
 Add Parametric Relation : assertion assertEquiv
   reflexivity proved by assertEquivRefl
@@ -272,7 +287,10 @@ Qed.
 Add Parametric Morphism (p : prog) : (box p)
  with signature (assertEquiv ==> assertEquiv)
  as boxEquivMorphism.
-Admitted.
+Proof.
+intros A B H. apply equivImpl. apply equivImpl in H. 
+destruct H as [H1 H2]. split; [rewrite H1|rewrite H2]; reflexivity.
+Qed.
 (* Здесь можно использовать equivImpl и переписывание A в B
 и наоборот под [p] *)
 
@@ -347,10 +365,18 @@ Admitted.
  Qed.
  
 Theorem deMorgan1 : forall A B, ¬(A \| B) =|= ¬A /| ¬B.
-Admitted.
+Proof.
+intros A B. unfold negA, orA, andA. unfold assertEquiv.
+intros st. firstorder. 
+Qed.
 
 Theorem deMorgan2 : forall A B, ¬(A /| B) =|= ¬A \| ¬B.
-Admitted.
+Proof.
+intros A B. unfold negA, orA, andA. unfold assertEquiv.
+intros st. split.
+* apply not_and_or.
+* firstorder.
+Qed.
 
  (** See Theorem 5.6, p.174 *)
  Theorem theorem_I : forall (p : prog) (A B : assertion),
