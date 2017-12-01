@@ -4,6 +4,11 @@ Require Import Relations.
 Require Import Setoid.
 Require Import Classical.
 
+Require Import Coq.Arith.Arith.
+Require Import Coq.Bool.Bool.
+Require Import Coq.Strings.String.
+Require Import Coq.Logic.FunctionalExtensionality.
+
 Arguments clos_refl_trans_1n {A} R x _.
 Arguments clos_trans {A} R x _.
 Arguments union {A} R1 R2 x y.
@@ -12,6 +17,48 @@ Module Type DynLogic.
   Parameters atomProg state : Set.
   Parameter meanFunc : atomProg -> relation state.
 End DynLogic.
+
+Module M <: DynLogic.
+
+Inductive id : Type :=
+  | Id : string -> id.
+
+Definition beq_id x y :=
+  match x,y with
+    | Id n1, Id n2 => if string_dec n1 n2 then true else false
+  end.
+
+Definition total_map (A:Set) := id -> A.
+
+Definition t_empty {A:Set} (v : A) : total_map A :=
+  (fun _ => v).
+
+Definition t_update {A:Set} (m : total_map A)
+                    (x : id) (v : A) :=
+  fun x' => if beq_id x x' then v else m x'.
+
+Definition state := total_map nat.
+
+Definition W : id := Id "W".
+Definition X : id := Id "X".
+Definition Y : id := Id "Y".
+Definition Z : id := Id "Z".
+
+Inductive Assign : Set :=
+  assign : id -> nat -> Assign.
+
+Definition atomProg := Assign.
+
+(*
+Definition meanFunc (a : atomProg) :=
+match a with
+| assign id rhs => fun st1 st2 : state => st1 = st2
+end.
+*) 
+
+Definition meanFunc (a : atomProg) :=
+  let (id, rhs) := a in fun st1 st2 : state => st2 = (t_update st1 id rhs).
+End M.
 
 Section Compose.
   Variables U V T : Type.
@@ -31,7 +78,7 @@ Bind Scope assertion_scope with assertion.
 Delimit Scope hprop_scope with assert.
 *)
 
- Definition impl (A B : assertion) : assertion := (fun x => (A x -> B x)).
+ Definition implA (A B : assertion) : assertion := (fun x => (A x -> B x)).
  
  Inductive prog : Type :=
  | Elem : atomProg -> prog
@@ -63,7 +110,7 @@ Delimit Scope hprop_scope with assert.
  Notation "A ?" := (Test A) (at level 50, left associativity).
  Notation "[ p ] A" := (box p A) (at level 70, right associativity).
 
- Notation "A ->> B" := (impl A B) (at level 80, right associativity).
+ Notation "A ->> B" := (implA A B) (at level 80, right associativity).
 
  Definition assertImpl (A B : assertion) := forall st, A st -> B st.
  Definition assertEquiv (A B : assertion) := forall st, A st <-> B st.
@@ -95,12 +142,12 @@ Delimit Scope hprop_scope with assert.
 
 Theorem implIntro : forall A B, ||= A ->> B <-> A |= B.
 Proof.
-intros A B; unfold assertImpl, valid, impl; split; trivial.
+intros A B; unfold assertImpl, valid, implA; split; trivial.
 Qed.
 
 Theorem implIntro1 : forall A B C, A |= B ->> C <-> A /| B |= C.
 Proof.
-intros A B C. unfold assertImpl, impl, andA. firstorder.
+intros A B C. unfold assertImpl, implA, andA. firstorder.
 Qed.
 
 Proposition assertImplRefl : Reflexive assertImpl.
@@ -132,12 +179,20 @@ as AssertEquivSetoid.
 Add Parametric Morphism : andA
  with signature (assertEquiv ==> assertEquiv ==> assertEquiv)
  as andEquivMorphism.
-Admitted.
+Proof.
+intros A B H1 A' B' H2.
+intro st; unfold andA. unfold assertEquiv in *.
+firstorder.
+Qed.
 
 Add Parametric Morphism : andA
  with signature (assertImpl ++> assertImpl ++> assertImpl)
  as andImplMorphism.
-Admitted.
+Proof.
+intros A B H1 A' B' H2.
+intro st; unfold andA. unfold assertEquiv in *.
+firstorder.
+Qed.
 
 (*
 Goal forall A B C, A |= B -> A /| C |= B /| C.
@@ -147,19 +202,29 @@ intros A B C H. now rewrite H.
 Add Parametric Morphism : orA
  with signature (assertEquiv ==> assertEquiv ==> assertEquiv)
  as orEquivMorphism.
-Admitted.
+Proof.
+intros A B H1 A' B' H2.
+intro st; unfold orA. unfold assertEquiv in *.
+firstorder.
+Qed.
 
 Add Parametric Morphism : orA
  with signature (assertImpl ++> assertImpl ++> assertImpl)
  as orImplMorphism.
-Admitted.
+intros A B H1 A' B' H2.
+intro st; unfold orA. unfold assertEquiv in *.
+firstorder.
+Qed.
 
-Add Parametric Morphism : impl
+Add Parametric Morphism : implA
  with signature (assertEquiv ==> assertEquiv ==> assertEquiv)
  as implEquivMorphism.
-Admitted.
+intros A B H1 A' B' H2.
+intro st; unfold implA. unfold assertEquiv in *.
+firstorder.
+Qed.
 
-Add Parametric Morphism : impl
+Add Parametric Morphism : implA
  with signature (assertImpl --> assertImpl ++> assertImpl)
  as implImplMorphism.
 Proof.
@@ -169,7 +234,10 @@ Qed.
 Add Parametric Morphism : negA
  with signature (assertEquiv ==> assertEquiv)
  as negEquivMorphism.
-Admitted.
+Proof.
+intros A B H st; unfold negA. unfold assertEquiv in *.
+firstorder. 
+Qed.
 
 Add Parametric Morphism : negA
  with signature (assertImpl --> assertImpl)
@@ -182,14 +250,16 @@ Qed.
  Theorem axiom_I : forall (p : prog) (A B : assertion),
     ||= ([p](A ->> B) ->> ([p]A ->> [p]B)).
  Proof.
- intros p A B. apply implIntro. unfold impl. 
+ intros p A B. apply implIntro. unfold implA. 
  intros st HA. unfold box in *. intros H st' H1. 
  apply HA. apply H1. apply H. apply H1.
  Qed.
  
 (* Корректность правила GEN *)
 Theorem genSound: forall p A, ||= A -> ||= [p]A.
-Admitted.
+intros p A HA. unfold valid in *. intros st. 
+unfold box. intros st' HP. now apply HA.
+Qed.
 
 Add Parametric Morphism (p : prog) : (box p)
  with signature (assertImpl ++> assertImpl)
@@ -243,9 +313,9 @@ Admitted.
   [A?]B =|= (A ->> B).
  Proof.
  intros A B. split.
- * intros H. unfold impl. intros HA. apply H.
+ * intros H. unfold implA. intros HA. apply H.
    simpl. split; [reflexivity|assumption].
- * intros H st' HT. unfold impl in H. simpl in HT.
+ * intros H st' HT. unfold implA in H. simpl in HT.
    destruct HT as [H1 H2].  rewrite <- H1. now apply H.
  Qed.
 
@@ -268,7 +338,7 @@ Admitted.
  (A /| [Iteration p](A ->> [p]A)) |= [Iteration p]A. 
  Proof.
  intros p A st. unfold box in *. simpl in *.  
- unfold impl. intros H. destruct H as [HA HI].
+ unfold implA. intros H. destruct H as [HA HI].
  intros st' H. rewrite <- clos_rt_rt1n_iff in *. 
  apply clos_refl_trans_ind_left with (R:=(progSemantics p)) (x:=st).
  apply HA. intros y z Hyz Hy Hpyz. rewrite clos_rt_rt1n_iff in Hyz.
@@ -291,17 +361,18 @@ unfold diamond.
 now rewrite deMorgan1, axiom_II, deMorgan2.
 Qed.
  
- Axiom double_neg_elim : forall P:Prop,
-  ~~P -> P.
+ Lemma dne : forall A, ¬¬A =|= A.
+ Proof.
+ intros A. split.
+ * apply NNPP.
+ * intros HA. unfold negA. unfold not.
+   intros HNA. now apply HNA.
+ Qed.  
 
  Theorem theorem_II : forall (p : prog) (A : assertion),
  [p]A =|=  ¬(diamond p (¬ A)).
  Proof.
- intros p A. unfold diamond. apply equivImpl. split.
- * intros st H. unfold negA. intros H1. apply H1.
-   intros st' H2. apply H in H2. intros HNNA. apply HNNA. apply H2.
- * intros st H. unfold negA in H. apply double_neg_elim in H. 
-   unfold box. intros st' HP. apply H in HP. now apply double_neg_elim in HP. 
+ intros p A. unfold diamond. now rewrite !dne.
  Qed.
 
  Theorem theorem_III : forall (p : prog) (A B : assertion),
@@ -329,11 +400,30 @@ Qed.
  * intros H. unfold falseA in *. now exfalso.
  Qed.
 
+Add Parametric Morphism : valid
+ with signature (assertEquiv ==> iff)
+ as validEquivMorphism.
+Proof.
+intros A B H. unfold valid. unfold assertEquiv in H.
+firstorder.
+Qed.
+
+Ltac propA e1 e2 :=
+  setoid_replace e1 with e2;
+    [| intro st; unfold andA, orA, implA, negA; tauto].
+
  Theorem theorem_VI : forall (p : prog) (A B : assertion),
  ((diamond p A) /| [p]B) |= diamond p (A /| B).
  Proof.
- intros p A B. intros st Hdb. unfold diamond in *.
- Admitted.
+intros p A B.
+unfold diamond.
+rewrite <- implIntro.
+propA (¬ ([p] ¬ A) /| [p] B ->> ¬ ([p] ¬ (A /| B)))
+      ([p] ¬ (A /| B) /| [p] B ->> [p] ¬ A).
+rewrite <- axiom_II.
+setoid_replace (¬ (A /| B) /| B) with (¬ A); [| admit].
+rewrite implIntro. reflexivity.
+Admitted.
 
  (** See Theorem 5.7, p.175 *)
  Theorem monDiamondSound : forall (A B : assertion) (p : prog),
@@ -379,7 +469,7 @@ Qed.
   ||=(hoare_triple A p B) -> ||=(hoare_triple B p' C) -> ||=(hoare_triple A (p;p') C).
  Proof.
  intros A B C p p' HAB HBC. unfold hoare_triple in *. 
- unfold impl in *. intros st HA. apply axiom_IV. 
+ unfold implA in *. intros st HA. apply axiom_IV. 
  unfold box in *. intros st' HP' st'' HP''. eapply HBC. eapply HAB.
  apply HA. apply HP'. apply HP''.
  Qed.
