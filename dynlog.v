@@ -404,26 +404,22 @@ Qed.
  Theorem theorem_III : forall (p : prog) (A B : assertion),
  ([p]A \| [p]B) |= [p](A \| B).  
  Proof.
- intros p A B. intros st HAB. destruct HAB as [HA|HB];
- unfold box; intros st' H; [left|right]; [apply HA|apply HB]; apply H.
+ intros p A B. rewrite <- implIntro. unfold orA, implA.
+ firstorder.
  Qed.
 
-  Theorem theorem_IV : forall (p : prog) (A B : assertion),
+ Theorem theorem_IV : forall (p : prog) (A B : assertion),
   (diamond p (A /| B)) |= ((diamond p A) /| (diamond p B)).
  Proof.
- intros p A B. intros st HAB. unfold diamond in *. split;
- unfold negA in *; unfold box in *; intros H; apply HAB;
- intros st' HP; apply or_not_and; [left|right]; now apply H in HP.
+ intros p A B. unfold diamond in *. rewrite <- implIntro.
+ unfold andA, implA, negA. firstorder.
  Qed.
  
  Theorem theorem_V : forall (p : prog),
  (diamond p falseA) =|= falseA.
  Proof.
- intros p. split.
- * unfold diamond. intros H. unfold box in H. unfold negA in H.
-   rewrite neg_false in H. unfold falseA in *. apply H. 
-   intros st' H1. unfold negA. intuition.
- * intros H. unfold falseA in *. now exfalso.
+ intros p. unfold diamond, falseA, negA.
+ apply equivImpl. split; rewrite <- implIntro; unfold implA; firstorder. 
  Qed.
 
 Add Parametric Morphism : valid
@@ -441,25 +437,21 @@ Ltac propA e1 e2 :=
  Theorem theorem_VI : forall (p : prog) (A B : assertion),
  ((diamond p A) /| [p]B) |= diamond p (A /| B).
  Proof.
-intros p A B.
-unfold diamond.
-rewrite <- implIntro.
-propA (¬ ([p] ¬ A) /| [p] B ->> ¬ ([p] ¬ (A /| B)))
+ intros p A B. unfold diamond.
+ rewrite <- implIntro.
+ propA (¬ ([p] ¬ A) /| [p] B ->> ¬ ([p] ¬ (A /| B)))
       ([p] ¬ (A /| B) /| [p] B ->> [p] ¬ A).
-rewrite <- axiom_II.
-setoid_replace (¬ (A /| B) /| B) with (¬ A); [| admit].
-rewrite implIntro. reflexivity.
-Admitted.
+ rewrite <- axiom_II.
+ rewrite implIntro.
+ setoid_replace (¬ (A /| B) /| B) with (¬ A) using relation assertImpl;
+ [reflexivity | intro st; unfold andA, orA, implA, negA; tauto].
+ Qed.
 
  (** See Theorem 5.7, p.175 *)
  Theorem monDiamondSound : forall (A B : assertion) (p : prog),
  ||=(A ->> B) -> ||=(diamond p A ->> diamond p B).
  Proof.
- intros A B p. intros H st.
- intros HdA. rewrite implIntro in H.
- unfold diamond in *. unfold negA in *. unfold not in *.
- intros H1. unfold box in *. apply HdA. intros st' HP HA.
- apply H1 with st'. apply HP. unfold assertImpl in H. now apply H.
+ intros A B p. intros H st. unfold diamond, negA, implA. firstorder.
  Qed.
 
  Theorem modBoxSound : forall (A B : assertion) (p : prog),
@@ -495,9 +487,7 @@ Admitted.
   ||=(hoare_triple A p B) -> ||=(hoare_triple B p' C) -> ||=(hoare_triple A (p;p') C).
  Proof.
  intros A B C p p' HAB HBC. unfold hoare_triple in *. 
- unfold implA in *. intros st HA. apply axiom_IV. 
- unfold box in *. intros st' HP' st'' HP''. eapply HBC. eapply HAB.
- apply HA. apply HP'. apply HP''.
+ unfold implA in *. firstorder. 
  Qed.
  
  Theorem condit_rule : forall (A B C : assertion) (p p' : prog),
@@ -505,10 +495,9 @@ Admitted.
   ||=(hoare_triple B (IFA A THEN p ELSE p' FI) C).
  Proof.
  intros A B C p p' HAB HNAB. unfold hoare_triple in *. 
- unfold ifA. intros st HB. apply axiom_III.
- split; apply axiom_IV; apply axiom_V; 
- [intros HA|intros HNA]; [apply HAB|apply HNAB];
- now split.
+ unfold ifA. rewrite axiom_III, axiom_IV, axiom_V. 
+ unfold andA, negA, implA in *. split; [firstorder|].
+ apply axiom_IV, axiom_V. unfold implA. firstorder.
  Qed.
 
  Theorem while_rule : forall (A B : assertion) (p : prog),
