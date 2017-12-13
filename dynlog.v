@@ -10,12 +10,12 @@ Arguments clos_refl_trans_1n {A} R x _.
 Arguments clos_trans {A} R x _.
 Arguments union {A} R1 R2 x y.
 
-Module Type DynLogic.
+Module Type atomPL.
   Parameters atomProg state : Set.
   Parameter meanFunc : atomProg -> relation state.
-End DynLogic.
+End atomPL.
 
-Module M <: DynLogic.
+Module M <: atomPL.
 
 Inductive id : Type :=
   | Id : string -> id.
@@ -73,7 +73,7 @@ End Compose.
 
 Arguments composeRel {U} {V} {T} R1 R2 _ _.
 
-Module PDL (Import D : DynLogic).
+Module DL (Import D : atomPL).
  Definition assertion := state -> Prop.
 
 (*
@@ -262,7 +262,7 @@ intros A B H st; unfold negA; auto.
 Qed.
 
  (** See Axiom System 5.5, p.173 *)
- Theorem axiom_I : forall (p : prog) (A B : assertion),
+ Theorem axiom_II : forall (p : prog) (A B : assertion),
     ||= ([p](A ->> B) ->> ([p]A ->> [p]B)).
  Proof.
  intros p A B. apply implIntro. unfold implA. 
@@ -281,7 +281,7 @@ Add Parametric Morphism (p : prog) : (box p)
  as boxImplMorphism.
 Proof.
 intros A B H. rewrite <- implIntro in H. apply (genSound p) in H.
-intro st; apply axiom_I, H.
+intro st; apply axiom_II, H.
 Qed.
 
 Add Parametric Morphism (p : prog) : (box p)
@@ -294,7 +294,7 @@ Qed.
 (* Здесь можно использовать equivImpl и переписывание A в B
 и наоборот под [p] *)
 
- Theorem axiom_II : forall (p : prog) (A B : assertion),
+ Theorem axiom_III : forall (p : prog) (A B : assertion),
    ([p](A /| B)) =|= ([p]A /| [p]B).
  Proof.
  intros p A B. apply equivImpl. split.
@@ -304,7 +304,7 @@ Qed.
    intros st' H1. split. now apply HA in H1. now apply HB in H1. 
  Qed.
 
- Theorem axiom_III : forall (p p': prog) (A : assertion),
+ Theorem axiom_IV : forall (p p': prog) (A : assertion),
   [p U p']A =|= [p]A /| [p']A.
  Proof.
  intros p p' A. split.
@@ -316,7 +316,7 @@ Qed.
    now apply H in H1. now apply H' in H1.
  Qed.
 
- Theorem axiom_IV : forall (p p': prog) (A : assertion),
+ Theorem axiom_V : forall (p p': prog) (A : assertion),
   [p; p']A =|= [p][p']A.
  Proof.
  intros p p' A. split.
@@ -327,7 +327,7 @@ Qed.
    eapply H. apply H'. apply H''.
  Qed.
 
- Theorem axiom_V : forall (A B : assertion),
+ Theorem axiom_VI : forall (A B : assertion),
   [A?]B =|= (A ->> B).
  Proof.
  intros A B. split.
@@ -337,12 +337,12 @@ Qed.
    destruct HT as [H1 H2].  rewrite <- H1. now apply H.
  Qed.
 
- Theorem axiom_VI : forall (p : prog) (A : assertion),
+ Theorem axiom_VII: forall (p : prog) (A : assertion),
  A /| [p][Iteration p]A =|= [Iteration p]A.
  Proof.
  intros p A. split.
  * unfold andA. intros [HA HI]. (* не работает setoid_rewrite <- axiom_IV in HI. *)
-   apply <- (axiom_IV p (Iteration p) A st) in HI .
+   apply <- (axiom_V p (Iteration p) A st) in HI .
    unfold box in *. simpl in *. intros st' H. inversion H. subst. apply HA.
    apply HI. subst. unfold composeRel. exists y. split. apply H0. apply H1.
  * intros H. unfold andA. split.
@@ -352,7 +352,7 @@ Qed.
      apply Relation_Operators.rt1n_trans with (y:=st'). apply H0. apply H1.
  Qed.
 
- Theorem axiom_VII : forall (p : prog) (A : assertion),
+ Theorem axiom_VIII : forall (p : prog) (A : assertion),
  (A /| [Iteration p](A ->> [p]A)) |= [Iteration p]A. 
  Proof.
  intros p A st. unfold box in *. simpl in *.  
@@ -384,7 +384,7 @@ Qed.
  Proof.
 intros p A B.
 unfold diamond. 
-now rewrite deMorgan1, axiom_II, deMorgan2.
+now rewrite deMorgan1, axiom_III, deMorgan2.
 Qed.
  
  Lemma dne : forall A, ¬¬A =|= A.
@@ -430,7 +430,7 @@ intros A B H. unfold valid. unfold assertEquiv in H.
 firstorder.
 Qed.
 
-Ltac propA e1 e2 :=
+Ltac replaceA e1 e2 :=
   setoid_replace e1 with e2;
     [| intro st; unfold andA, orA, implA, negA; tauto].
 
@@ -439,9 +439,9 @@ Ltac propA e1 e2 :=
  Proof.
  intros p A B. unfold diamond.
  rewrite <- implIntro.
- propA (¬ ([p] ¬ A) /| [p] B ->> ¬ ([p] ¬ (A /| B)))
+ replaceA (¬ ([p] ¬ A) /| [p] B ->> ¬ ([p] ¬ (A /| B)))
       ([p] ¬ (A /| B) /| [p] B ->> [p] ¬ A).
- rewrite <- axiom_II.
+ rewrite <- axiom_III.
  rewrite implIntro.
  setoid_replace (¬ (A /| B) /| B) with (¬ A) using relation assertImpl;
  [reflexivity | intro st; unfold andA, orA, implA, negA; tauto].
@@ -454,12 +454,12 @@ Ltac propA e1 e2 :=
  intros A B p. intros H st. unfold diamond, negA, implA. firstorder.
  Qed.
 
- Theorem modBoxSound : forall (A B : assertion) (p : prog),
+ Theorem monBoxSound : forall (A B : assertion) (p : prog),
  ||=(A ->> B) -> ||=([p]A ->> [p]B).
  Proof.
  intros A B p. intros H st.
  assert (H1 : ([p](A ->> B) |= ([p]A ->> [p]B)) ).
- { rewrite <- implIntro. apply axiom_I. } apply H1. 
+ { rewrite <- implIntro. apply axiom_II. } apply H1. 
  now apply genSound.
  Qed.
 
@@ -495,22 +495,35 @@ Ltac propA e1 e2 :=
   ||=(hoare_triple B (IFA A THEN p ELSE p' FI) C).
  Proof.
  intros A B C p p' HAB HNAB. unfold hoare_triple in *. 
- unfold ifA. rewrite axiom_III, axiom_IV, axiom_V. 
+ unfold ifA. rewrite axiom_IV, axiom_V, axiom_VI. 
  unfold andA, negA, implA in *. split; [firstorder|].
- apply axiom_IV, axiom_V. unfold implA. firstorder.
+ apply axiom_V, axiom_VI. unfold implA. firstorder.
+ Qed.
+
+ Theorem loop_inv_rule : forall A p,
+ ||=(A ->> [p]A) -> ||=(A ->> [Iteration p]A).
+ Proof.
+ intros A p H1 st HA. apply axiom_VIII. split. apply HA.
+ now apply genSound. 
  Qed.
 
  Theorem while_rule : forall (A B : assertion) (p : prog),
  ||=(hoare_triple (A /| B) p B) -> ||=(hoare_triple B (WHILE A DO p END) ((¬A) /| B)).
  Proof.
- intros A B p HABPB st. unfold hoare_triple in *.
- unfold whileA. rewrite implIntro in *. intros HB st'. 
- apply axiom_IV. apply axiom_VI. split.
- * apply axiom_V. intros HNA. now split.
- * unfold box. intros st0 HP0 st1 HP1 st2 HP2.
-   simpl in *. destruct HP2 as [HS HNA]. subst.
-   split. apply HNA.  
- Admitted.
+ intros A B p. unfold hoare_triple, whileA.
+ replaceA (A /| B ->> [p]B) (B ->> (A ->> [p]B)).
+ intros HABPB st. 
+ setoid_replace (B ->> (A ->> [p]B)) with (B ->> ([A?]([p]B))) in HABPB;
+ [|rewrite axiom_VI; reflexivity]. rewrite <- axiom_V in HABPB.
+ apply loop_inv_rule in HABPB. 
+ setoid_replace (B ->> [Iteration (A ?; p)]B) 
+ with (B ->> [Iteration  (A ?; p)]((¬A)  ->> ((¬A) /| B))) in HABPB.
+ Focus 2. unfold implA, andA, negA. firstorder. 
+ setoid_replace (B ->> [Iteration  (A ?; p)]((¬A)  ->> ((¬A) /| B)))
+ with (B ->> [(Iteration  (A ?; p))][(¬A)?]((¬A) /| B)) in HABPB.
+ Focus 2. rewrite axiom_VI. reflexivity.
+ rewrite <- axiom_V in HABPB. apply HABPB.
+ Qed.
 
  Theorem weaken_rule : forall (A' A B B' : assertion) (p : prog),
  ||=(A' ->> A) -> ||=(hoare_triple A p B) -> 
@@ -519,4 +532,4 @@ Ltac propA e1 e2 :=
  intros A' A B B' p HIA HAB HIB. unfold hoare_triple in *. 
  rewrite implIntro in *. rewrite HIA, HAB, HIB. reflexivity.
  Qed.
-End PDL.
+End DL.
